@@ -42,6 +42,14 @@
     .status.ok{color:#d8ffe8;background:rgba(51,209,122,.18)}
     .status.bad{color:#ffe1e1;background:rgba(255,92,92,.18)}
     .status.warn{color:#fff4c2;background:rgba(255,204,0,.16)}
+    .results-button{display:block;text-align:center;margin:0 0 8px;padding:10px 12px;border-radius:14px;background:rgba(51,209,122,.16);color:#d8ffe8;text-decoration:none;font-weight:900;box-shadow:inset 0 0 0 1px rgba(51,209,122,.25)}
+    .sync-status{border-radius:12px;padding:8px 10px;margin:0 0 10px;background:rgba(255,255,255,.07);color:var(--muted);font-size:.84rem;text-align:center;font-weight:800}
+    .sync-status.ok{color:#d8ffe8;background:rgba(51,209,122,.15)}
+    .sync-status.warn{color:#fff4c2;background:rgba(255,204,0,.15)}
+    .sync-status.bad{color:#ffe1e1;background:rgba(255,92,92,.15)}
+    .other-panel{display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+    .other-panel.active{display:block}
+
     button{appearance:none;border:0;border-radius:15px;padding:12px 12px;font-size:.98rem;font-weight:800;color:var(--text);background:var(--panel2);box-shadow:inset 0 0 0 1px var(--border);min-height:54px;cursor:pointer;touch-action:manipulation}
     button:active{transform:translateY(1px)}
     .timeline-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -91,7 +99,7 @@
   <header>
     <div>
       <h1>Timestamp Logger</h1>
-      <div class="sub">Mission timeline · <a class="results-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Results</a></div>
+      <div class="sub">Mission timeline · v0.8</div>
     </div>
     <div class="clock">
       <strong id="clockTime">--:--</strong>
@@ -101,6 +109,9 @@
 
   <section class="card">
     <div id="status" class="status">Ready.</div>
+    <a class="results-button" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">📋 Open Output</a>
+    <div class="small" style="text-align:center;margin:-2px 0 8px;">Default Magpas output link. Other organisations need their own short link.</div>
+    <div id="syncStatus" class="sync-status">Sync status loading...</div>
     <div class="timeline-grid" id="timelineGrid"></div>
     <div class="action-row">
       <button id="interventionButton">Intervention <span class="count" id="interventionCount">0 logged</span></button>
@@ -155,7 +166,6 @@
 <div class="bottom-voice">
   <div class="bottom-voice-inner">
     <button class="voice-button" id="voiceButton">🎙️ VOICE NOTE</button>
-    <button class="secondary hidden" id="installButton" style="width:100%;margin-top:8px;">⬇️ Install app</button>
   </div>
 </div>
 
@@ -166,10 +176,19 @@
       <button class="modal-close" id="modalClose">Close</button>
     </div>
     <div class="list-grid" id="modalList"></div>
+    <div class="other-panel" id="otherPanel">
+      <label id="otherLabel" for="otherText">Other</label>
+      <textarea id="otherText" placeholder="Type other item, e.g. Magnesium"></textarea>
+      <div class="row">
+        <button class="secondary" id="otherDictateButton">🎙️ Dictate</button>
+        <button class="secondary" id="otherSendButton">Send other</button>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
+const APP_VERSION="0.8";
 const DEFAULT_ENDPOINT_URL="https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
 const DEFAULT_ORGANISATION="Magpas";
 const DEFAULT_USER="";
@@ -251,6 +270,7 @@ function buildPayload({eventType,note,category}){
     user:getUserName(),
     organisation:getOrganisation(),
     source:APP_SOURCE,
+    app_version:APP_VERSION,
     user_agent:navigator.userAgent
   };
 }
@@ -259,23 +279,115 @@ async function postTimestamp(payload, markComplete=true){
   if(!payload.user){setStatus("Add user/callsign in User setup before logging.","warn");$("setupDetails").open=true;return false}
   if(!payload.organisation){setStatus("Add organisation in User setup before logging.","warn");$("setupDetails").open=true;return false}
 
-  setStatus("Sending...");
-  try{
-    await fetch(getEndpoint(),{method:"POST",mode:"no-cors",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-    saveHistory(payload);
-    if(markComplete && payload.event_type && !["VOICE_NOTE","MANUAL_NOTE","TEST","JOB_COMPLETE"].includes(payload.event_type)){
-      const done=getCompletions();
-      done[payload.event_type]={time:payload.event_time_local,note:payload.note,category:payload.event_category};
-      setCompletions(done);
+  payload.local_id = payload.local_id || makeLocalId();
+  payload.sync_status = "pending";
+
+  saveHistory(payload);
+  enqueuePending(payload);
+
+  if(markComplete && payload.event_type && !["VOICE_NOTE","MANUAL_NOTE","TEST","JOB_COMPLETE"].includes(payload.event_type)){
+    const done=getCompletions();
+    done[payload.event_type]={time:payload.event_time_local,note:payload.note,category:payload.event_category};
+    setCompletions(done);
+  }
+
+  renderAll();
+  updateSyncStatus();
+  setStatus(`Saved locally: ${payload.event_time_local} ${payload.note||payload.event_type}`,"warn");
+  vibrate([40]);
+
+  await syncPending();
+
+  return true;
+}
+
+function makeLocalId(){
+  return "local-" + Date.now() + "-" + Math.random().toString(36).slice(2,10);
+}
+
+function getPendingQueue(){
+  return JSON.parse(localStorage.getItem("timestamp_pending_queue")||"[]");
+}
+
+function setPendingQueue(queue){
+  localStorage.setItem("timestamp_pending_queue", JSON.stringify(queue));
+}
+
+function enqueuePending(payload){
+  const queue=getPendingQueue();
+  if(!queue.some(item=>item.local_id===payload.local_id)){
+    queue.push(payload);
+    setPendingQueue(queue);
+  }
+}
+
+function markHistorySent(localId){
+  const history=getHistory();
+  const updated=history.map(item=>{
+    if(item.local_id===localId){
+      return {...item, sync_status:"sent"};
     }
-    renderAll();
-    setStatus(`Logged: ${payload.event_time_local} ${payload.note||payload.event_type}`,"ok");
-    vibrate([60,40,60]);
-    return true;
-  }catch(err){
-    setStatus("Send failed: "+err.message,"bad");
-    vibrate([250,100,250]);
-    return false;
+    return item;
+  });
+  setHistory(updated);
+}
+
+async function syncPending(){
+  const endpoint=getEndpoint();
+  if(!endpoint) return;
+  if(!navigator.onLine){
+    updateSyncStatus();
+    return;
+  }
+
+  let queue=getPendingQueue();
+  if(!queue.length){
+    updateSyncStatus();
+    return;
+  }
+
+  setStatus(`Syncing ${queue.length} pending...`);
+
+  const stillPending=[];
+
+  for(const item of queue){
+    try{
+      await fetch(endpoint,{
+        method:"POST",
+        mode:"no-cors",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({...item, sync_status:"sent"})
+      });
+      markHistorySent(item.local_id);
+    }catch(err){
+      stillPending.push(item);
+    }
+  }
+
+  setPendingQueue(stillPending);
+  renderHistory();
+  updateSyncStatus();
+
+  if(stillPending.length){
+    setStatus(`${stillPending.length} pending sync. Will retry when online.`,"warn");
+  }else{
+    setStatus("All synced.","ok");
+  }
+}
+
+function updateSyncStatus(){
+  const el=$("syncStatus");
+  if(!el) return;
+  const count=getPendingQueue().length;
+  if(!navigator.onLine){
+    el.className="sync-status bad";
+    el.textContent=count ? `Offline · ${count} pending` : "Offline";
+  }else if(count){
+    el.className="sync-status warn";
+    el.textContent=`Online · ${count} pending sync`;
+  }else{
+    el.className="sync-status ok";
+    el.textContent="Online · all synced";
   }
 }
 
@@ -312,7 +424,7 @@ function renderHistory(){
   const history=getHistory();
   const el=$("history");
   if(!history.length){el.innerHTML='<div class="small">No entries logged from this device yet.</div>';return;}
-  el.innerHTML=history.map(item=>`<div class="history-item"><strong>${escapeHtml(item.event_time_local||"")}</strong> ${escapeHtml(item.note||item.event_type||"")}<br /><span class="small">${escapeHtml(item.event_category||"")} · ${escapeHtml(item.organisation||"")} / ${escapeHtml(item.user||"")}</span></div>`).join("");
+  el.innerHTML=history.map(item=>`<div class="history-item"><strong>${escapeHtml(item.event_time_local||"")}</strong> ${escapeHtml(item.note||item.event_type||"")}<br /><span class="small">${escapeHtml(item.event_category||"")} · ${escapeHtml(item.organisation||"")} / ${escapeHtml(item.user||"")} · ${escapeHtml(item.sync_status||"sent")}</span></div>`).join("");
 }
 
 function renderAll(){renderTimeline();renderCounts();renderHistory();}
@@ -321,9 +433,14 @@ function openModal(type){
   state.modalType=type;
   const items=type==="intervention"?INTERVENTIONS:DRUGS;
   $("modalTitle").textContent=type==="intervention"?"Intervention":"Drug";
+  $("otherLabel").textContent=type==="intervention"?"Other intervention":"Other drug";
+  $("otherText").value="";
+  $("otherPanel").classList.remove("active");
+
   const done=getCompletions();
   const list=$("modalList");
   list.innerHTML="";
+
   items.forEach(item=>{
     const btn=document.createElement("button");
     btn.className=done[item.type]?"done":"";
@@ -334,10 +451,73 @@ function openModal(type){
     });
     list.appendChild(btn);
   });
+
+  const otherBtn=document.createElement("button");
+  otherBtn.textContent="Other...";
+  otherBtn.addEventListener("click",()=>{
+    $("otherPanel").classList.add("active");
+    $("otherText").focus();
+  });
+  list.appendChild(otherBtn);
+
   $("modalBackdrop").style.display="flex";
 }
 
-function closeModal(){$("modalBackdrop").style.display="none";state.modalType=null}
+function slugifyEventType(prefix, text){
+  const cleaned=String(text||"")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g,"_")
+    .replace(/^_+|_+$/g,"")
+    .slice(0,60);
+  return `${prefix}_OTHER_${cleaned||"UNSPECIFIED"}`;
+}
+
+function sendOtherItem(){
+  const text=$("otherText").value.trim();
+  if(!text){
+    setStatus("Enter the other item first.","warn");
+    return;
+  }
+  const type=state.modalType;
+  const prefix=type==="drug"?"DRUG":"INTERVENTION";
+  closeModal();
+  postTimestamp(buildPayload({
+    eventType:slugifyEventType(prefix,text),
+    note:text,
+    category:type
+  }));
+}
+
+function dictateOtherItem(){
+  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SpeechRecognition){
+    setStatus("Dictation is not supported in this browser. Type the item instead.","warn");
+    return;
+  }
+
+  const recognition=new SpeechRecognition();
+  recognition.lang="en-GB";
+  recognition.interimResults=false;
+  recognition.maxAlternatives=1;
+  recognition.continuous=false;
+
+  recognition.onstart=()=>setStatus("Listening for other item...");
+  recognition.onerror=e=>setStatus("Other item dictation error: "+e.error,"bad");
+  recognition.onresult=e=>{
+    const text=e.results?.[0]?.[0]?.transcript||"";
+    if(text.trim()){
+      $("otherText").value=text.trim();
+      setStatus("Dictation captured. Tap Send other.","ok");
+    } else {
+      setStatus("No speech detected.","warn");
+    }
+  };
+
+  try{recognition.start()}catch(err){setStatus("Could not start dictation: "+err.message,"bad")}
+}
+
+function closeModal(){$("modalBackdrop").style.display="none";state.modalType=null;$("otherPanel").classList.remove("active")}
 
 function escapeHtml(str){return String(str).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
 
@@ -377,22 +557,23 @@ async function completeJob(){
   if(!ok) return;
   const payload=buildPayload({eventType:"JOB_COMPLETE",note:"Job completed / local timeline cleared",category:"job"});
   await postTimestamp(payload,false);
+
+  const completed=JSON.parse(localStorage.getItem("timestamp_completed_jobs")||"[]");
+  completed.unshift({
+    completed_at:new Date().toISOString(),
+    user:getUserName(),
+    organisation:getOrganisation(),
+    entries:getHistory()
+  });
+  localStorage.setItem("timestamp_completed_jobs",JSON.stringify(completed.slice(0,5)));
+
   localStorage.removeItem("timestamp_completions");
   localStorage.removeItem("timestamp_history");
   renderAll();
   setStatus("Job completed. Local timeline cleared.","ok");
 }
 
-function setupInstallPrompt(){
-  window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();state.deferredInstallPrompt=e;$("installButton").classList.remove("hidden")});
-  $("installButton").addEventListener("click",async()=>{
-    if(!state.deferredInstallPrompt){setStatus("Use Chrome menu → Add to Home screen if install prompt is not available.","warn");return}
-    state.deferredInstallPrompt.prompt();
-    await state.deferredInstallPrompt.userChoice;
-    state.deferredInstallPrompt=null;
-    $("installButton").classList.add("hidden");
-  });
-}
+function setupInstallPrompt(){}
 
 async function registerServiceWorker(){if("serviceWorker" in navigator){try{await navigator.serviceWorker.register("service-worker.js")}catch(err){console.warn("Service worker registration failed",err)}}}
 
@@ -413,6 +594,8 @@ function bindEvents(){
   $("drugButton").addEventListener("click",()=>openModal("drug"));
   $("modalClose").addEventListener("click",closeModal);
   $("modalBackdrop").addEventListener("click",e=>{if(e.target===$("modalBackdrop")) closeModal()});
+  $("otherSendButton").addEventListener("click",sendOtherItem);
+  $("otherDictateButton").addEventListener("click",dictateOtherItem);
   $("completeJobButton").addEventListener("click",completeJob);
 }
 
@@ -420,6 +603,11 @@ function init(){
   updateClock();setInterval(updateClock,1000);
   loadSettings();renderAll();
   setupSpeechRecognition();setupInstallPrompt();bindEvents();registerServiceWorker();
+  updateSyncStatus();
+  syncPending();
+  window.addEventListener("online",()=>{updateSyncStatus();syncPending();});
+  window.addEventListener("offline",updateSyncStatus);
+  setInterval(syncPending,30000);
   if(!getUserName()) setStatus("Add user/callsign in User setup before first use.","warn");
 }
 init();
