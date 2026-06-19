@@ -3,429 +3,58 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#071625" />
+  <meta name="theme-color" content="#0b1f3a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Timestamp" />
   <title>Timestamp Logger</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icon-192.png" />
   <style>
-    :root {
-      --bg:#071625; --panel:#10263f; --panel2:#1b426d; --text:#f3f7fb;
-      --muted:#b8c7d6; --accent:#33d17a; --warn:#ffcc00; --danger:#8a3333;
-      --border:rgba(255,255,255,.16); --bottomPad:116px;
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0; min-height:100vh; font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      color:var(--text); background:radial-gradient(circle at top,#153c66 0,#071625 42%,#04101c 100%);
-      padding:env(safe-area-inset-top) 14px calc(var(--bottomPad) + env(safe-area-inset-bottom)) 14px;
-    }
-    main{width:min(720px,100%); margin:0 auto; padding:14px 0 20px}
-    header{display:flex; justify-content:space-between; gap:10px; margin-bottom:12px}
-    h1{font-size:1.35rem; margin:0 0 2px; line-height:1.1}
-    .sub,.small{color:var(--muted); font-size:.84rem; line-height:1.35}
-    .clock{text-align:right; color:var(--muted); font-variant-numeric:tabular-nums; min-width:92px}
-    .clock strong{display:block; color:var(--text); font-size:1.15rem}
-    .card{background:rgba(16,38,63,.94); border:1px solid var(--border); border-radius:18px; padding:13px; margin-bottom:12px; box-shadow:0 12px 32px rgba(0,0,0,.28)}
-    .status,.sync-status{border-radius:14px; padding:10px 12px; margin-bottom:10px; background:rgba(255,255,255,.08); color:var(--muted); text-align:center; font-size:.9rem; font-weight:700}
-    .status.ok,.sync-status.ok{color:#d8ffe8; background:rgba(51,209,122,.16)}
-    .status.warn,.sync-status.warn{color:#fff4c2; background:rgba(255,204,0,.16)}
-    .status.bad,.sync-status.bad{color:#ffe1e1; background:rgba(255,92,92,.16)}
-    .output-button{display:block; text-align:center; margin:0 0 8px; padding:10px 12px; border-radius:14px; background:rgba(51,209,122,.16); color:#d8ffe8; text-decoration:none; font-weight:900; box-shadow:inset 0 0 0 1px rgba(51,209,122,.28)}
-    button{appearance:none; border:0; border-radius:15px; padding:12px; min-height:56px; color:var(--text); background:var(--panel2); font-size:.98rem; font-weight:850; box-shadow:inset 0 0 0 1px var(--border); touch-action:manipulation}
-    button:active{transform:translateY(1px)}
-    .timeline-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px}
-    .timeline-btn{text-align:left; position:relative; min-height:62px}
-    .timeline-btn .label{display:block; line-height:1.1}
-    .timeline-btn .time{display:block; color:var(--muted); font-size:.83rem; margin-top:5px; font-variant-numeric:tabular-nums}
-    .timeline-btn.done{background:#244635; color:#e8fff0}
-    .timeline-btn.done::after{content:"✓"; position:absolute; top:10px; right:12px; color:var(--accent); font-size:1.2rem}
-    .timeline-btn.done .time{color:#d8ffe8}
-    .action-row,.job-row,.row{display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:10px}
-    .danger{background:var(--danger)!important}
-    .secondary{background:#1b426d!important}
-    .count{display:block; color:var(--muted); font-size:.82rem; font-weight:700; margin-top:3px}
-    details summary{cursor:pointer; color:var(--muted); font-weight:850}
-    label{display:block; color:var(--muted); font-size:.82rem; margin-bottom:6px}
-    input,textarea{width:100%; background:#071625; color:var(--text); border:1px solid var(--border); border-radius:12px; padding:12px; font-size:1rem}
-    textarea{min-height:78px; resize:vertical}
-    .manual-card{display:none}
-    .history-item{border-top:1px solid var(--border); padding:9px 0; color:var(--muted); font-size:.9rem}
-    .history-item:first-child{border-top:0}
-    .history-item strong{color:var(--text); font-variant-numeric:tabular-nums}
-    .bottom-voice{position:fixed; left:0; right:0; bottom:0; z-index:50; padding:10px 14px calc(10px + env(safe-area-inset-bottom)); background:linear-gradient(180deg,rgba(7,22,37,0),rgba(7,22,37,.96) 18%,#071625 100%)}
-    .bottom-voice-inner{width:min(720px,100%); margin:0 auto}
-    .voice-button{width:100%; min-height:84px; border-radius:22px; font-size:1.28rem; letter-spacing:.02em; background:linear-gradient(135deg,#1ca55c,#11854b); box-shadow:0 10px 26px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.22)}
-    .voice-button.listening{background:linear-gradient(135deg,#c0392b,#8e2016); animation:pulse 1.2s infinite}
-    @keyframes pulse{0%{filter:brightness(1)}50%{filter:brightness(1.25)}100%{filter:brightness(1)}}
-    .modal-backdrop{position:fixed; inset:0; background:rgba(0,0,0,.62); z-index:70; display:none; align-items:flex-end; justify-content:center}
-    .modal{width:min(720px,100%); max-height:78vh; overflow:auto; background:#0b1f3a; border:1px solid var(--border); border-radius:24px 24px 0 0; padding:14px 14px calc(14px + env(safe-area-inset-bottom)); box-shadow:0 -16px 40px rgba(0,0,0,.5)}
-    .modal-header{display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px}
-    .modal-header h2{font-size:1.15rem; margin:0}
-    .modal-close{min-height:44px; padding:8px 14px; background:var(--danger)}
-    .list-grid{display:grid; grid-template-columns:1fr; gap:8px}
-    .list-grid button{text-align:left; min-height:54px}
-    .list-grid button.done{background:#244635; color:#e8fff0}
-    .list-grid button .time{display:block; color:var(--muted); font-size:.82rem; margin-top:3px}
-    .other-panel{display:none; margin-top:12px; padding-top:12px; border-top:1px solid var(--border)}
-    .other-panel.active{display:block}
-    @media(min-width:480px){.timeline-grid{grid-template-columns:1fr 1fr 1fr} .list-grid{grid-template-columns:1fr 1fr}}
+    :root{--bg:#071625;--panel:#10263f;--panel2:#163557;--text:#f3f7fb;--muted:#b8c7d6;--accent:#33d17a;--warn:#ffcc00;--danger:#ff5c5c;--border:rgba(255,255,255,.14)}
+    *{box-sizing:border-box} body{margin:0;min-height:100vh;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text);background:radial-gradient(circle at top,#153c66 0,#071625 45%,#04101c 100%);padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
+    main{width:min(720px,100%);margin:0 auto;padding:18px 0 32px} header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px} h1{font-size:1.65rem;line-height:1.1;margin:0 0 4px;letter-spacing:-.02em}.sub{color:var(--muted);font-size:.95rem}.clock{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);min-width:95px}.clock strong{display:block;color:var(--text);font-size:1.25rem}
+    .card{background:rgba(16,38,63,.92);border:1px solid var(--border);border-radius:20px;padding:16px;box-shadow:0 12px 32px rgba(0,0,0,.28);margin-bottom:14px;backdrop-filter:blur(8px)} label{display:block;color:var(--muted);font-size:.82rem;margin-bottom:6px} input,textarea{width:100%;background:#071625;color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:1rem;outline:none} textarea{min-height:78px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+    button{appearance:none;border:0;border-radius:16px;padding:16px 14px;font-size:1rem;font-weight:700;color:var(--text);background:var(--panel2);box-shadow:inset 0 0 0 1px var(--border);min-height:58px;cursor:pointer;touch-action:manipulation} button:active{transform:translateY(1px)}.primary{background:linear-gradient(135deg,#1ca55c,#11854b);font-size:1.2rem;min-height:76px}.secondary{background:#1b426d}.danger{background:#733}.button-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.button-grid button{min-height:72px}.status{border-radius:14px;padding:12px;background:rgba(255,255,255,.08);color:var(--muted);font-size:.95rem;min-height:44px}.status.ok{color:#d8ffe8;background:rgba(51,209,122,.18)}.status.bad{color:#ffe1e1;background:rgba(255,92,92,.18)}.status.warn{color:#fff4c2;background:rgba(255,204,0,.16)}.history-item{border-top:1px solid var(--border);padding:10px 0;color:var(--muted);font-size:.93rem}.history-item:first-child{border-top:0}.history-item strong{color:var(--text);font-variant-numeric:tabular-nums} details summary{cursor:pointer;color:var(--muted);font-weight:700;margin-bottom:10px}.small{font-size:.85rem;color:var(--muted);line-height:1.4}.hidden{display:none!important}@media(min-width:640px){.button-grid{grid-template-columns:repeat(3,1fr)}}
   </style>
 </head>
 <body>
 <main>
-  <header>
-    <div>
-      <h1>Timestamp Logger</h1>
-      <div class="sub">Mission timeline · v0.9a</div>
-    </div>
-    <div class="clock">
-      <strong id="clockTime">--:--</strong>
-      <span id="clockDate">--</span>
-    </div>
-  </header>
-
-  <section class="card">
-    <div id="status" class="status">Ready.</div>
-    <a class="output-button" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">📋 Open Output</a>
-    <div class="small" style="text-align:center;margin:-2px 0 8px;">Default Magpas output link. Other organisations need their own short link.</div>
-    <div id="syncStatus" class="sync-status">Sync status loading...</div>
-
-    <div class="timeline-grid" id="timelineGrid"></div>
-
-    <div class="action-row">
-      <button id="interventionButton">Intervention <span class="count" id="interventionCount">0 logged</span></button>
-      <button id="drugButton">Drug <span class="count" id="drugCount">0 logged</span></button>
-    </div>
-
-    <div class="timeline-grid" id="laterTimelineGrid" style="margin-top:10px;"></div>
-
-    <div class="job-row">
-      <button class="secondary" id="manualButton">✍️ Manual note</button>
-      <button class="danger" id="clearButton">Clear</button>
-    </div>
-  </section>
-
-  <section class="card manual-card" id="manualCard">
-    <label for="manualNote">Manual note</label>
-    <textarea id="manualNote" placeholder="e.g. Tourniquet applied left thigh"></textarea>
-    <div class="row">
-      <button class="secondary" id="sendManualButton">Send note</button>
-      <button class="danger" id="cancelManualButton">Cancel</button>
-    </div>
-  </section>
-
-  <section class="card">
-    <details id="setupDetails">
-      <summary>User setup</summary>
-      <div class="row">
-        <div>
-          <label for="organisation">Organisation</label>
-          <input id="organisation" placeholder="e.g. Magpas" />
-        </div>
-        <div>
-          <label for="userName">User / callsign</label>
-          <input id="userName" placeholder="e.g. Nick" />
-        </div>
-      </div>
-      <div class="row">
-        <button id="saveSettingsButton">Save setup</button>
-        <button id="testButton">Send test</button>
-      </div>
-    </details>
-  </section>
-
-  <section class="card">
-    <details open>
-      <summary>Local timeline</summary>
-      <div id="history"></div>
-    </details>
-  </section>
+  <header><div><h1>Timestamp Logger</h1><div class="sub">One-tap timeline entries and voice notes</div></div><div class="clock"><strong id="clockTime">--:--</strong><span id="clockDate">--</span></div></header>
+  <section class="card"><button class="primary" id="voiceButton">🎙️ Voice note</button><div class="row"><button class="secondary" id="manualButton">✍️ Manual note</button><button class="secondary hidden" id="installButton">⬇️ Install</button></div><div id="status" class="status" style="margin-top:12px;">Ready.</div></section>
+  <section class="card"><div class="button-grid" id="presetGrid"></div></section>
+  <section class="card" id="manualCard" style="display:none;"><label for="manualNote">Manual note</label><textarea id="manualNote" placeholder="e.g. Tourniquet applied left thigh"></textarea><div class="row"><button class="primary" id="sendManualButton">Send note</button><button class="danger" id="cancelManualButton">Cancel</button></div></section>
+  <section class="card"><details><summary>Settings</summary><label for="endpoint">Apps Script Web App URL</label><input id="endpoint" placeholder="https://script.google.com/macros/s/.../exec" /><div class="row"><div><label for="userName">User</label><input id="userName" placeholder="e.g. Nick" /></div><div><label for="incidentId">Incident ID</label><input id="incidentId" placeholder="optional" /></div></div><div class="row"><button id="saveSettingsButton">Save settings</button><button id="testButton">Send test</button></div><p class="small">Settings are stored locally on this device. For first deployment, paste your Google Apps Script Web App URL here.</p></details></section>
+  <section class="card"><details open><summary>Recent entries on this device</summary><div id="history"></div></details></section>
 </main>
-
-<div class="bottom-voice">
-  <div class="bottom-voice-inner">
-    <button class="voice-button" id="voiceButton">🎙️ VOICE NOTE</button>
-  </div>
-</div>
-
-<div class="modal-backdrop" id="modalBackdrop">
-  <div class="modal" role="dialog" aria-modal="true">
-    <div class="modal-header">
-      <h2 id="modalTitle">Select</h2>
-      <button class="modal-close" id="modalClose">Close</button>
-    </div>
-    <div class="list-grid" id="modalList"></div>
-    <div class="other-panel" id="otherPanel">
-      <label id="otherLabel" for="otherText">Other</label>
-      <textarea id="otherText" placeholder="Type other item, e.g. Magnesium"></textarea>
-      <div class="row">
-        <button class="secondary" id="otherDictateButton">🎙️ Dictate</button>
-        <button class="secondary" id="otherSendButton">Send other</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <script>
-const APP_VERSION="0.9a";
-const DEFAULT_ENDPOINT_URL="https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
-const DEFAULT_ORGANISATION="Magpas";
+const DEFAULT_ENDPOINT_URL=""; // optional: paste Apps Script URL here before deployment
 const DEFAULT_USER="";
 const APP_SOURCE="AndroidPWA";
-
-const TIMELINE_EVENTS=[
-  {label:"Mobile",type:"MOBILE"},
-  {label:"Landed",type:"LANDED"},
-  {label:"Arrive Scene",type:"ARRIVE_SCENE"},
-  {label:"With Patient",type:"WITH_PATIENT"},
-  {label:"Ready to Leave Scene",type:"READY_TO_LEAVE_SCENE"},
-  {label:"Depart Scene",type:"DEPART_SCENE"},
-  {label:"Hospital Arrival",type:"HOSPITAL_ARRIVAL"},
-  {label:"Handover Complete",type:"HANDOVER_COMPLETE"}
+const PRESET_EVENTS=[
+  {label:"Patient contact",type:"PATIENT_CONTACT"},{label:"Mobile landed",type:"MOBILE_LANDED"},{label:"Ready to move",type:"READY_TO_MOVE"},{label:"Depart scene",type:"DEPART_SCENE"},{label:"Hospital arrival",type:"HOSPITAL_ARRIVAL"},{label:"Handover",type:"HANDOVER"},{label:"RSI",type:"RSI"},{label:"TXA",type:"TXA"},{label:"Blood given",type:"BLOOD_GIVEN"},{label:"Tourniquet",type:"TOURNIQUET"},{label:"Chest decompression",type:"CHEST_DECOMPRESSION"},{label:"ROSC",type:"ROSC"}
 ];
-
-const INTERVENTIONS=[
-  {label:"Arterial Line",type:"ARTERIAL_LINE"},
-  {label:"ETT",type:"ETT"},
-  {label:"FAST",type:"FAST"},
-  {label:"FIB",type:"FIB"},
-  {label:"Haemostatic Dressing",type:"HAEMOSTATIC_DRESSING"},
-  {label:"IO Access",type:"IO_ACCESS"},
-  {label:"IV Access",type:"IV_ACCESS"},
-  {label:"Pelvic Binder",type:"PELVIC_BINDER"},
-  {label:"PHEA",type:"PHEA"},
-  {label:"ROSC",type:"ROSC"},
-  {label:"Thoracostomy",type:"THORACOSTOMY"},
-  {label:"Tourniquet",type:"TOURNIQUET"}
-];
-
-const DRUGS=[
-  {label:"Adrenaline",type:"ADRENALINE"},
-  {label:"Blood",type:"BLOOD"},
-  {label:"Calcium",type:"CALCIUM"},
-  {label:"Fentanyl",type:"FENTANYL"},
-  {label:"Ketamine",type:"KETAMINE"},
-  {label:"Midazolam",type:"MIDAZOLAM"},
-  {label:"Rocuronium",type:"ROCURONIUM"},
-  {label:"TXA",type:"TXA"}
-];
-
-const $=id=>document.getElementById(id);
-const state={recognition:null,modalType:null};
-
+const $=id=>document.getElementById(id); const state={deferredInstallPrompt:null,recognition:null,isListening:false};
 function formatTime(date=new Date()){return new Intl.DateTimeFormat("en-GB",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}).format(date)}
 function formatDate(date=new Date()){return new Intl.DateTimeFormat("en-GB",{weekday:"short",day:"2-digit",month:"short"}).format(date)}
-function updateClock(){$("clockTime").textContent=formatTime();$("clockDate").textContent=formatDate();}
-function setStatus(message,kind=""){const el=$("status");el.className="status"+(kind?" "+kind:"");el.textContent=message;}
-function loadSettings(){$("organisation").value=localStorage.getItem("timestamp_organisation")||DEFAULT_ORGANISATION;$("userName").value=localStorage.getItem("timestamp_user")||DEFAULT_USER;if(!$("userName").value.trim()) $("setupDetails").open=true;}
-function saveSettings(){localStorage.setItem("timestamp_organisation",$("organisation").value.trim());localStorage.setItem("timestamp_user",$("userName").value.trim());setStatus("User setup saved.","ok");}
-function getEndpoint(){return DEFAULT_ENDPOINT_URL.trim()}
-function getOrganisation(){return (localStorage.getItem("timestamp_organisation")||DEFAULT_ORGANISATION||"").trim()}
-function getUserName(){return (localStorage.getItem("timestamp_user")||DEFAULT_USER||"").trim()}
-function getCompletions(){return JSON.parse(localStorage.getItem("timestamp_completions")||"{}")}
-function setCompletions(obj){localStorage.setItem("timestamp_completions",JSON.stringify(obj))}
-function getHistory(){return JSON.parse(localStorage.getItem("timestamp_history")||"[]")}
-function setHistory(arr){localStorage.setItem("timestamp_history",JSON.stringify(arr.slice(0,80)))}
-function getPendingQueue(){return JSON.parse(localStorage.getItem("timestamp_pending_queue")||"[]")}
-function setPendingQueue(queue){localStorage.setItem("timestamp_pending_queue",JSON.stringify(queue))}
-function makeLocalId(){return "local-"+Date.now()+"-"+Math.random().toString(36).slice(2,10)}
-
-function buildPayload({eventType,note,category}){
-  const d=new Date();
-  return {
-    event_time:d.toISOString(),
-    event_time_local:formatTime(d),
-    event_date_local:formatDate(d),
-    event_type:eventType||"VOICE_NOTE",
-    event_category:category||"",
-    note:note||"",
-    prompt:`${formatTime(d)} - ${note||eventType||""}`,
-    user:getUserName(),
-    organisation:getOrganisation(),
-    source:APP_SOURCE,
-    app_version:APP_VERSION,
-    user_agent:navigator.userAgent,
-    local_id:makeLocalId(),
-    sync_status:"pending"
-  };
-}
-
-async function postTimestamp(payload, markComplete=true){
-  if(!payload.user){setStatus("Add user/callsign in User setup before logging.","warn");$("setupDetails").open=true;return false}
-  if(!payload.organisation){setStatus("Add organisation in User setup before logging.","warn");$("setupDetails").open=true;return false}
-
-  saveHistory(payload);
-  enqueuePending(payload);
-
-  if(markComplete && payload.event_type && !["VOICE_NOTE","MANUAL_NOTE","TEST","CLEAR","JOB_COMPLETE"].includes(payload.event_type)){
-    const done=getCompletions();
-    done[payload.event_type]={time:payload.event_time_local,note:payload.note,category:payload.event_category};
-    setCompletions(done);
-  }
-
-  renderAll();
-  updateSyncStatus();
-  setStatus(`Saved locally: ${payload.event_time_local} ${payload.note||payload.event_type}`,"warn");
-  vibrate([40]);
-  await syncPending();
-  return true;
-}
-
-function enqueuePending(payload){const q=getPendingQueue();if(!q.some(x=>x.local_id===payload.local_id)){q.push(payload);setPendingQueue(q);}}
-function saveHistory(payload){const h=getHistory();h.unshift(payload);setHistory(h);}
-function markHistorySent(localId){setHistory(getHistory().map(x=>x.local_id===localId?{...x,sync_status:"sent"}:x));}
-
-async function syncPending(){
-  if(!navigator.onLine){updateSyncStatus();return}
-  let q=getPendingQueue();
-  if(!q.length){updateSyncStatus();return}
-  setStatus(`Syncing ${q.length} pending...`);
-  const still=[];
-  for(const item of q){
-    try{
-      await fetch(getEndpoint(),{method:"POST",mode:"no-cors",headers:{"Content-Type":"application/json"},body:JSON.stringify({...item,sync_status:"sent"})});
-      markHistorySent(item.local_id);
-    }catch(err){still.push(item);}
-  }
-  setPendingQueue(still);
-  renderHistory();
-  updateSyncStatus();
-  setStatus(still.length?`${still.length} pending sync. Will retry.`:"All synced.",still.length?"warn":"ok");
-}
-
-function updateSyncStatus(){
-  const el=$("syncStatus"); if(!el) return;
-  const count=getPendingQueue().length;
-  if(!navigator.onLine){el.className="sync-status bad";el.textContent=count?`Offline · ${count} pending`:"Offline";}
-  else if(count){el.className="sync-status warn";el.textContent=`Online · ${count} pending sync`;}
-  else{el.className="sync-status ok";el.textContent="Online · all synced";}
-}
-
+function updateClock(){ $("clockTime").textContent=formatTime(); $("clockDate").textContent=formatDate(); }
+function setStatus(message,kind=""){const el=$("status"); el.className="status"+(kind?" "+kind:""); el.textContent=message;}
+function loadSettings(){ $("endpoint").value=localStorage.getItem("timestamp_endpoint")||DEFAULT_ENDPOINT_URL; $("userName").value=localStorage.getItem("timestamp_user")||DEFAULT_USER; $("incidentId").value=localStorage.getItem("timestamp_incident")||"";}
+function saveSettings(){ localStorage.setItem("timestamp_endpoint",$("endpoint").value.trim()); localStorage.setItem("timestamp_user",$("userName").value.trim()); localStorage.setItem("timestamp_incident",$("incidentId").value.trim()); setStatus("Settings saved.","ok");}
+function getEndpoint(){return (localStorage.getItem("timestamp_endpoint")||DEFAULT_ENDPOINT_URL||"").trim()} function getUserName(){return (localStorage.getItem("timestamp_user")||DEFAULT_USER||"").trim()} function getIncidentId(){return (localStorage.getItem("timestamp_incident")||"").trim()}
+function buildPayload({eventType,note}){const d=new Date(); return {event_time:d.toISOString(),event_time_local:formatTime(d),event_date_local:formatDate(d),event_type:eventType||"VOICE_NOTE",note:note||"",prompt:`${formatTime(d)} - ${note||eventType||""}`,user:getUserName(),incident_id:getIncidentId(),source:APP_SOURCE,user_agent:navigator.userAgent};}
+async function postTimestamp(payload){const endpoint=getEndpoint(); if(!endpoint){setStatus("No endpoint URL set. Open Settings and paste your Apps Script Web App URL.","warn");return false} setStatus("Sending..."); try{await fetch(endpoint,{method:"POST",mode:"no-cors",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}); saveHistory(payload); setStatus(`Logged: ${payload.event_time_local} ${payload.note||payload.event_type}`,"ok"); vibrate([60,40,60]); return true;}catch(err){setStatus("Send failed: "+err.message,"bad"); vibrate([250,100,250]); return false;}}
 function vibrate(pattern){if("vibrate" in navigator) navigator.vibrate(pattern)}
-
-function renderTimeline(){
-  const done=getCompletions();
-  const topGrid=$("timelineGrid");
-  const laterGrid=$("laterTimelineGrid");
-  topGrid.innerHTML="";
-  laterGrid.innerHTML="";
-  const topTypes=["MOBILE","LANDED","ARRIVE_SCENE","WITH_PATIENT"];
-  const laterTypes=["READY_TO_LEAVE_SCENE","DEPART_SCENE","HOSPITAL_ARRIVAL","HANDOVER_COMPLETE"];
-
-  TIMELINE_EVENTS.forEach(ev=>{
-    const btn=document.createElement("button");
-    btn.className="timeline-btn"+(done[ev.type]?" done":"");
-    btn.innerHTML=`<span class="label">${escapeHtml(ev.label)}</span><span class="time">${done[ev.type]?.time||""}</span>`;
-    btn.addEventListener("click",()=>postTimestamp(buildPayload({eventType:ev.type,note:ev.label,category:"timeline"})));
-    if(topTypes.includes(ev.type)) topGrid.appendChild(btn);
-    else if(laterTypes.includes(ev.type)){
-      if(ev.type==="READY_TO_LEAVE_SCENE") btn.style.gridColumn="1 / -1";
-      laterGrid.appendChild(btn);
-    }
-  });
-}
-
-function renderCounts(){
-  const done=getCompletions();
-  const interventionCount=Object.values(done).filter(x=>x.category==="intervention").length;
-  const drugCount=Object.values(done).filter(x=>x.category==="drug").length;
-  $("interventionCount").textContent=interventionCount===1?"1 logged":`${interventionCount} logged`;
-  $("drugCount").textContent=drugCount===1?"1 logged":`${drugCount} logged`;
-}
-
-function renderHistory(){
-  const h=getHistory(); const el=$("history");
-  if(!h.length){el.innerHTML='<div class="small">No entries logged from this device yet.</div>';return;}
-  el.innerHTML=h.map(item=>`<div class="history-item"><strong>${escapeHtml(item.event_time_local||"")}</strong> ${escapeHtml(item.note||item.event_type||"")}<br><span class="small">${escapeHtml(item.event_category||"")} · ${escapeHtml(item.organisation||"")} / ${escapeHtml(item.user||"")} · ${escapeHtml(item.sync_status||"sent")}</span></div>`).join("");
-}
-
-function renderAll(){renderTimeline();renderCounts();renderHistory();}
-
-function openModal(type){
-  state.modalType=type;
-  const items=type==="intervention"?INTERVENTIONS:DRUGS;
-  $("modalTitle").textContent=type==="intervention"?"Intervention":"Drug";
-  $("otherLabel").textContent=type==="intervention"?"Other intervention":"Other drug";
-  $("otherText").value="";
-  $("otherPanel").classList.remove("active");
-  const done=getCompletions();
-  const list=$("modalList"); list.innerHTML="";
-  items.forEach(item=>{
-    const btn=document.createElement("button");
-    btn.className=done[item.type]?"done":"";
-    btn.innerHTML=`${escapeHtml(item.label)}${done[item.type]?`<span class="time">✓ ${escapeHtml(done[item.type].time)}</span>`:""}`;
-    btn.addEventListener("click",()=>{closeModal();postTimestamp(buildPayload({eventType:item.type,note:item.label,category:type}));});
-    list.appendChild(btn);
-  });
-  const other=document.createElement("button");
-  other.textContent="Other...";
-  other.addEventListener("click",()=>{$("otherPanel").classList.add("active");$("otherText").focus();});
-  list.appendChild(other);
-  $("modalBackdrop").style.display="flex";
-}
-
-function closeModal(){$("modalBackdrop").style.display="none";state.modalType=null;$("otherPanel").classList.remove("active")}
-function slugifyEventType(prefix,text){const cleaned=String(text||"").trim().toUpperCase().replace(/[^A-Z0-9]+/g,"_").replace(/^_+|_+$/g,"").slice(0,60);return `${prefix}_OTHER_${cleaned||"UNSPECIFIED"}`;}
-function sendOtherItem(){const text=$("otherText").value.trim();if(!text){setStatus("Enter the other item first.","warn");return} const type=state.modalType; const prefix=type==="drug"?"DRUG":"INTERVENTION"; closeModal(); postTimestamp(buildPayload({eventType:slugifyEventType(prefix,text),note:text,category:type}));}
-function dictateOtherItem(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){setStatus("Dictation not supported. Type the item.","warn");return} const r=new SR();r.lang="en-GB";r.interimResults=false;r.maxAlternatives=1;r.onstart=()=>setStatus("Listening for other item...");r.onerror=e=>setStatus("Other item dictation error: "+e.error,"bad");r.onresult=e=>{const text=e.results?.[0]?.[0]?.transcript||"";if(text.trim()){$("otherText").value=text.trim();setStatus("Dictation captured. Tap Send other.","ok");}else setStatus("No speech detected.","warn");};try{r.start()}catch(err){setStatus("Could not start dictation: "+err.message,"bad")}}
-
-function setupSpeechRecognition(){
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){$("voiceButton").disabled=true;$("voiceButton").textContent="🎙️ Voice not supported";setStatus("Speech recognition not supported. Use Manual note.","warn");return}
-  const r=new SR(); r.lang="en-GB"; r.interimResults=false; r.maxAlternatives=1; r.continuous=false;
-  r.onstart=()=>{$("voiceButton").classList.add("listening");$("voiceButton").textContent="🔴 LISTENING...";setStatus("Listening...")};
-  r.onerror=e=>{$("voiceButton").classList.remove("listening");$("voiceButton").textContent="🎙️ VOICE NOTE";setStatus("Voice error: "+e.error,"bad")};
-  r.onend=()=>{$("voiceButton").classList.remove("listening");$("voiceButton").textContent="🎙️ VOICE NOTE"};
-  r.onresult=e=>{const text=e.results?.[0]?.[0]?.transcript||"";if(text.trim()) postTimestamp(buildPayload({eventType:"VOICE_NOTE",note:text.trim(),category:"voice"}),false); else setStatus("No speech detected.","warn");};
-  state.recognition=r;
-}
-
-function startVoice(){if(!state.recognition){setStatus("Voice unavailable. Use Manual note.","warn");return} try{state.recognition.start()}catch(err){setStatus("Could not start voice: "+err.message,"bad")}}
-function showManual(show){$("manualCard").style.display=show?"block":"none"; if(show) $("manualNote").focus();}
-
-async function clearEpisode(){
-  const ok=confirm("End patient episode?\n\nThis will clear the local timeline.\n\nOutput: tiny.cc/MagpasTimestamp");
-  if(!ok) return;
-  const payload=buildPayload({eventType:"CLEAR",note:"Patient episode cleared",category:"job"});
-  await postTimestamp(payload,false);
-  const completed=JSON.parse(localStorage.getItem("timestamp_completed_jobs")||"[]");
-  completed.unshift({cleared_at:new Date().toISOString(),user:getUserName(),organisation:getOrganisation(),entries:getHistory()});
-  localStorage.setItem("timestamp_completed_jobs",JSON.stringify(completed.slice(0,5)));
-  localStorage.removeItem("timestamp_completions");
-  localStorage.removeItem("timestamp_history");
-  renderAll();
-  setStatus("Patient episode cleared. Output: tiny.cc/MagpasTimestamp","ok");
-}
-
+function saveHistory(payload){const history=JSON.parse(localStorage.getItem("timestamp_history")||"[]"); history.unshift(payload); localStorage.setItem("timestamp_history",JSON.stringify(history.slice(0,15))); renderHistory();}
+function renderHistory(){const history=JSON.parse(localStorage.getItem("timestamp_history")||"[]"); const el=$("history"); if(!history.length){el.innerHTML='<div class="small">No entries logged from this device yet.</div>'; return;} el.innerHTML=history.map(item=>`<div class="history-item"><strong>${escapeHtml(item.event_time_local||"")}</strong> ${escapeHtml(item.event_type||"")}<br />${escapeHtml(item.note||"")}</div>`).join("");}
 function escapeHtml(str){return String(str).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
-
+function renderPresets(){const grid=$("presetGrid"); grid.innerHTML=""; PRESET_EVENTS.forEach(ev=>{const btn=document.createElement("button"); btn.textContent=ev.label; btn.addEventListener("click",()=>postTimestamp(buildPayload({eventType:ev.type,note:ev.label}))); grid.appendChild(btn);});}
+function setupSpeechRecognition(){const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SpeechRecognition){$("voiceButton").disabled=true; $("voiceButton").textContent="🎙️ Voice not supported"; setStatus("Speech recognition is not supported in this browser. Use Manual note or preset buttons.","warn"); return;} const recognition=new SpeechRecognition(); recognition.lang="en-GB"; recognition.interimResults=false; recognition.maxAlternatives=1; recognition.continuous=false; recognition.onstart=()=>{state.isListening=true; setStatus("Listening..."); $("voiceButton").textContent="🎙️ Listening..."}; recognition.onerror=e=>{state.isListening=false; $("voiceButton").textContent="🎙️ Voice note"; setStatus("Voice recognition error: "+e.error,"bad")}; recognition.onend=()=>{state.isListening=false; $("voiceButton").textContent="🎙️ Voice note"}; recognition.onresult=e=>{const text=e.results?.[0]?.[0]?.transcript||""; if(!text.trim()){setStatus("No speech detected.","warn"); return;} postTimestamp(buildPayload({eventType:"VOICE_NOTE",note:text.trim()}));}; state.recognition=recognition;}
+function startVoice(){if(!state.recognition){setStatus("Voice recognition is not available. Use Manual note.","warn");return} try{state.recognition.start()}catch(err){setStatus("Could not start voice recognition: "+err.message,"bad")}}
+function showManual(show){$("manualCard").style.display=show?"block":"none"; if(show) $("manualNote").focus();}
+function setupInstallPrompt(){window.addEventListener("beforeinstallprompt",e=>{e.preventDefault(); state.deferredInstallPrompt=e; $("installButton").classList.remove("hidden")}); $("installButton").addEventListener("click",async()=>{if(!state.deferredInstallPrompt){setStatus("Use Chrome menu → Add to Home screen if install prompt is not available.","warn");return} state.deferredInstallPrompt.prompt(); await state.deferredInstallPrompt.userChoice; state.deferredInstallPrompt=null; $("installButton").classList.add("hidden");});}
 async function registerServiceWorker(){if("serviceWorker" in navigator){try{await navigator.serviceWorker.register("service-worker.js")}catch(err){console.warn("Service worker registration failed",err)}}}
-
-function bindEvents(){
-  $("saveSettingsButton").addEventListener("click",saveSettings);
-  $("testButton").addEventListener("click",()=>{saveSettings();postTimestamp(buildPayload({eventType:"TEST",note:"Test timestamp from Android PWA",category:"test"}),false)});
-  $("voiceButton").addEventListener("click",startVoice);
-  $("manualButton").addEventListener("click",()=>showManual(true));
-  $("cancelManualButton").addEventListener("click",()=>showManual(false));
-  $("sendManualButton").addEventListener("click",()=>{const note=$("manualNote").value.trim();if(!note){setStatus("Enter a note first.","warn");return} postTimestamp(buildPayload({eventType:"MANUAL_NOTE",note,category:"manual"}),false);$("manualNote").value="";showManual(false);});
-  $("interventionButton").addEventListener("click",()=>openModal("intervention"));
-  $("drugButton").addEventListener("click",()=>openModal("drug"));
-  $("modalClose").addEventListener("click",closeModal);
-  $("modalBackdrop").addEventListener("click",e=>{if(e.target===$("modalBackdrop")) closeModal()});
-  $("otherSendButton").addEventListener("click",sendOtherItem);
-  $("otherDictateButton").addEventListener("click",dictateOtherItem);
-  $("clearButton").addEventListener("click",clearEpisode);
-}
-
-function init(){
-  updateClock(); setInterval(updateClock,1000);
-  loadSettings(); renderAll(); setupSpeechRecognition(); bindEvents(); registerServiceWorker();
-  updateSyncStatus(); syncPending();
-  window.addEventListener("online",()=>{updateSyncStatus();syncPending();});
-  window.addEventListener("offline",updateSyncStatus);
-  setInterval(syncPending,30000);
-  if(!getUserName()) setStatus("Add user/callsign in User setup before first use.","warn");
-}
+function bindEvents(){ $("saveSettingsButton").addEventListener("click",saveSettings); $("testButton").addEventListener("click",()=>{saveSettings(); postTimestamp(buildPayload({eventType:"TEST",note:"Test timestamp from Android PWA"}))}); $("voiceButton").addEventListener("click",startVoice); $("manualButton").addEventListener("click",()=>showManual(true)); $("cancelManualButton").addEventListener("click",()=>showManual(false)); $("sendManualButton").addEventListener("click",()=>{const note=$("manualNote").value.trim(); if(!note){setStatus("Enter a note first.","warn");return} postTimestamp(buildPayload({eventType:"MANUAL_NOTE",note})); $("manualNote").value=""; showManual(false);}); }
+function init(){updateClock(); setInterval(updateClock,1000); loadSettings(); renderPresets(); renderHistory(); setupSpeechRecognition(); setupInstallPrompt(); bindEvents(); registerServiceWorker(); if(!getEndpoint()) setStatus("Set your Apps Script URL in Settings before first use.","warn");}
 init();
 </script>
 </body>
