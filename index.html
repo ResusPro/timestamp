@@ -99,7 +99,7 @@
   <header>
     <div>
       <h1>Timestamp Logger</h1>
-      <div class="sub">Mission timeline · v0.8</div>
+      <div class="sub">Mission timeline · v0.9</div>
     </div>
     <div class="clock">
       <strong id="clockTime">--:--</strong>
@@ -117,9 +117,10 @@
       <button id="interventionButton">Intervention <span class="count" id="interventionCount">0 logged</span></button>
       <button id="drugButton">Drug <span class="count" id="drugCount">0 logged</span></button>
     </div>
+    <div class="timeline-grid" id="laterTimelineGrid" style="margin-top:10px;"></div>
     <div class="job-row">
       <button class="secondary" id="manualButton">✍️ Manual note</button>
-      <button class="danger" id="completeJobButton">Complete job</button>
+      <button class="danger" id="completeJobButton">Clear</button>
     </div>
   </section>
 
@@ -188,7 +189,7 @@
 </div>
 
 <script>
-const APP_VERSION="0.8";
+const APP_VERSION="0.9";
 const DEFAULT_ENDPOINT_URL="https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
 const DEFAULT_ORGANISATION="Magpas";
 const DEFAULT_USER="";
@@ -200,7 +201,7 @@ const TIMELINE_EVENTS=[
   {label:"Landed",type:"LANDED"},
   {label:"Arrive Scene",type:"ARRIVE_SCENE"},
   {label:"With Patient",type:"WITH_PATIENT"},
-  {label:"Ready To Move",type:"READY_TO_MOVE"},
+  {label:"Ready to Leave Scene",type:"READY_TO_LEAVE_SCENE"},
   {label:"Depart Scene",type:"DEPART_SCENE"},
   {label:"Hospital Arrival",type:"HOSPITAL_ARRIVAL"},
   {label:"Handover Complete",type:"HANDOVER_COMPLETE"}
@@ -285,7 +286,7 @@ async function postTimestamp(payload, markComplete=true){
   saveHistory(payload);
   enqueuePending(payload);
 
-  if(markComplete && payload.event_type && !["VOICE_NOTE","MANUAL_NOTE","TEST","JOB_COMPLETE"].includes(payload.event_type)){
+  if(markComplete && payload.event_type && !["VOICE_NOTE","MANUAL_NOTE","TEST","JOB_COMPLETE","CLEAR"].includes(payload.event_type)){
     const done=getCompletions();
     done[payload.event_type]={time:payload.event_time_local,note:payload.note,category:payload.event_category};
     setCompletions(done);
@@ -401,14 +402,30 @@ function saveHistory(payload){
 
 function renderTimeline(){
   const done=getCompletions();
-  const grid=$("timelineGrid");
-  grid.innerHTML="";
+  const topGrid=$("timelineGrid");
+  const laterGrid=$("laterTimelineGrid");
+  topGrid.innerHTML="";
+  if(laterGrid) laterGrid.innerHTML="";
+
+  const topEvents=["MOBILE","LANDED","ARRIVE_SCENE","WITH_PATIENT"];
+  const laterEvents=["READY_TO_LEAVE_SCENE","DEPART_SCENE","HOSPITAL_ARRIVAL","HANDOVER_COMPLETE"];
+
   TIMELINE_EVENTS.forEach(ev=>{
     const btn=document.createElement("button");
     btn.className="timeline-btn"+(done[ev.type]?" done":"");
     btn.innerHTML=`<span class="label">${escapeHtml(ev.label)}</span><span class="time">${done[ev.type]?.time||""}</span>`;
     btn.addEventListener("click",()=>postTimestamp(buildPayload({eventType:ev.type,note:ev.label,category:"timeline"})));
-    grid.appendChild(btn);
+
+    if(topEvents.includes(ev.type)){
+      topGrid.appendChild(btn);
+    }else if(laterGrid && laterEvents.includes(ev.type)){
+      if(ev.type==="READY_TO_LEAVE_SCENE"){
+        btn.style.gridColumn="1 / -1";
+      }
+      laterGrid.appendChild(btn);
+    }else{
+      topGrid.appendChild(btn);
+    }
   });
 }
 
@@ -498,7 +515,7 @@ function dictateOtherItem(){
 
   const recognition=new SpeechRecognition();
   recognition.lang="en-GB";
-  recognition.interimResults=false;
+  recognition.interimOutput=false;
   recognition.maxAlternatives=1;
   recognition.continuous=false;
 
@@ -531,7 +548,7 @@ function setupSpeechRecognition(){
   }
   const recognition=new SpeechRecognition();
   recognition.lang="en-GB";
-  recognition.interimResults=false;
+  recognition.interimOutput=false;
   recognition.maxAlternatives=1;
   recognition.continuous=false;
   recognition.onstart=()=>{state.isListening=true;$("voiceButton").classList.add("listening");$("voiceButton").textContent="🔴 LISTENING...";setStatus("Listening...")};
@@ -553,14 +570,19 @@ function startVoice(){
 function showManual(show){$("manualCard").style.display=show?"block":"none";if(show)$("manualNote").focus()}
 
 async function completeJob(){
-  const ok=confirm("Complete this job and clear the local timeline?");
+  const ok=confirm("End patient episode?
+
+This will clear the local timeline.
+
+Output: tiny.cc/MagpasTimestamp");
   if(!ok) return;
-  const payload=buildPayload({eventType:"JOB_COMPLETE",note:"Job completed / local timeline cleared",category:"job"});
+
+  const payload=buildPayload({eventType:"CLEAR",note:"Patient episode cleared",category:"job"});
   await postTimestamp(payload,false);
 
   const completed=JSON.parse(localStorage.getItem("timestamp_completed_jobs")||"[]");
   completed.unshift({
-    completed_at:new Date().toISOString(),
+    cleared_at:new Date().toISOString(),
     user:getUserName(),
     organisation:getOrganisation(),
     entries:getHistory()
@@ -570,7 +592,7 @@ async function completeJob(){
   localStorage.removeItem("timestamp_completions");
   localStorage.removeItem("timestamp_history");
   renderAll();
-  setStatus("Job completed. Local timeline cleared.","ok");
+  setStatus("Patient episode cleared. Output: tiny.cc/MagpasTimestamp","ok");
 }
 
 function setupInstallPrompt(){}
