@@ -4,94 +4,71 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#071625" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="Timestamp" />
   <title>Timestamp Logger</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icon-192.png" />
   <style>
     :root {
-      --bg:#071625;
-      --panel:#10263f;
-      --panel2:#163557;
-      --panel3:#0d2138;
-      --text:#f3f7fb;
-      --muted:#b8c7d6;
-      --accent:#33d17a;
-      --warn:#ffcc00;
-      --danger:#ff5c5c;
-      --border:rgba(255,255,255,.14);
-      --bottomPad:116px;
+      --bg:#071625; --panel:#10263f; --panel2:#1b426d; --text:#f3f7fb;
+      --muted:#b8c7d6; --accent:#33d17a; --warn:#ffcc00; --danger:#8a3333;
+      --border:rgba(255,255,255,.16); --bottomPad:116px;
     }
     *{box-sizing:border-box}
-    html,body{margin:0;min-height:100%;}
     body{
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      color:var(--text);
-      background:radial-gradient(circle at top,#153c66 0,#071625 45%,#04101c 100%);
+      margin:0; min-height:100vh; font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      color:var(--text); background:radial-gradient(circle at top,#153c66 0,#071625 42%,#04101c 100%);
       padding:env(safe-area-inset-top) 14px calc(var(--bottomPad) + env(safe-area-inset-bottom)) 14px;
     }
-    main{width:min(720px,100%);margin:0 auto;padding:14px 0 20px}
-    header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px}
-    h1{font-size:1.35rem;line-height:1.1;margin:0 0 3px;letter-spacing:-.02em}
-    .sub{color:var(--muted);font-size:.85rem}
-    .clock{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);min-width:94px;font-size:.82rem}
-    .clock strong{display:block;color:var(--text);font-size:1.18rem}
-    .card{background:rgba(16,38,63,.94);border:1px solid var(--border);border-radius:18px;padding:13px;box-shadow:0 12px 32px rgba(0,0,0,.28);margin-bottom:12px;backdrop-filter:blur(8px)}
-    .status{border-radius:14px;padding:10px 12px;background:rgba(255,255,255,.08);color:var(--muted);font-size:.9rem;min-height:40px;margin-bottom:10px}
-    .status.ok{color:#d8ffe8;background:rgba(51,209,122,.18)}
-    .status.bad{color:#ffe1e1;background:rgba(255,92,92,.18)}
-    .status.warn{color:#fff4c2;background:rgba(255,204,0,.16)}
-    .results-button{display:block;text-align:center;margin:0 0 8px;padding:10px 12px;border-radius:14px;background:rgba(51,209,122,.16);color:#d8ffe8;text-decoration:none;font-weight:900;box-shadow:inset 0 0 0 1px rgba(51,209,122,.25)}
-    .sync-status{border-radius:12px;padding:8px 10px;margin:0 0 10px;background:rgba(255,255,255,.07);color:var(--muted);font-size:.84rem;text-align:center;font-weight:800}
-    .sync-status.ok{color:#d8ffe8;background:rgba(51,209,122,.15)}
-    .sync-status.warn{color:#fff4c2;background:rgba(255,204,0,.15)}
-    .sync-status.bad{color:#ffe1e1;background:rgba(255,92,92,.15)}
-    .other-panel{display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
-    .other-panel.active{display:block}
-
-    button{appearance:none;border:0;border-radius:15px;padding:12px 12px;font-size:.98rem;font-weight:800;color:var(--text);background:var(--panel2);box-shadow:inset 0 0 0 1px var(--border);min-height:54px;cursor:pointer;touch-action:manipulation}
+    main{width:min(720px,100%); margin:0 auto; padding:14px 0 20px}
+    header{display:flex; justify-content:space-between; gap:10px; margin-bottom:12px}
+    h1{font-size:1.35rem; margin:0 0 2px; line-height:1.1}
+    .sub,.small{color:var(--muted); font-size:.84rem; line-height:1.35}
+    .clock{text-align:right; color:var(--muted); font-variant-numeric:tabular-nums; min-width:92px}
+    .clock strong{display:block; color:var(--text); font-size:1.15rem}
+    .card{background:rgba(16,38,63,.94); border:1px solid var(--border); border-radius:18px; padding:13px; margin-bottom:12px; box-shadow:0 12px 32px rgba(0,0,0,.28)}
+    .status,.sync-status{border-radius:14px; padding:10px 12px; margin-bottom:10px; background:rgba(255,255,255,.08); color:var(--muted); text-align:center; font-size:.9rem; font-weight:700}
+    .status.ok,.sync-status.ok{color:#d8ffe8; background:rgba(51,209,122,.16)}
+    .status.warn,.sync-status.warn{color:#fff4c2; background:rgba(255,204,0,.16)}
+    .status.bad,.sync-status.bad{color:#ffe1e1; background:rgba(255,92,92,.16)}
+    .output-button{display:block; text-align:center; margin:0 0 8px; padding:10px 12px; border-radius:14px; background:rgba(51,209,122,.16); color:#d8ffe8; text-decoration:none; font-weight:900; box-shadow:inset 0 0 0 1px rgba(51,209,122,.28)}
+    button{appearance:none; border:0; border-radius:15px; padding:12px; min-height:56px; color:var(--text); background:var(--panel2); font-size:.98rem; font-weight:850; box-shadow:inset 0 0 0 1px var(--border); touch-action:manipulation}
     button:active{transform:translateY(1px)}
-    .timeline-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .timeline-btn{text-align:left;position:relative;min-height:62px;background:var(--panel2)}
-    .timeline-btn .label{display:block;line-height:1.1}
-    .timeline-btn .time{display:block;color:var(--muted);font-weight:700;font-size:.84rem;margin-top:5px;font-variant-numeric:tabular-nums}
-    .timeline-btn.done{background:#244635;color:#e8fff0}
-    .timeline-btn.done::after{content:"✓";position:absolute;right:12px;top:10px;color:var(--accent);font-size:1.2rem}
+    .timeline-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+    .timeline-btn{text-align:left; position:relative; min-height:62px}
+    .timeline-btn .label{display:block; line-height:1.1}
+    .timeline-btn .time{display:block; color:var(--muted); font-size:.83rem; margin-top:5px; font-variant-numeric:tabular-nums}
+    .timeline-btn.done{background:#244635; color:#e8fff0}
+    .timeline-btn.done::after{content:"✓"; position:absolute; top:10px; right:12px; color:var(--accent); font-size:1.2rem}
     .timeline-btn.done .time{color:#d8ffe8}
-    .action-row{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}
-    .action-row button{min-height:66px;background:#1b426d}
-    .action-row button .count{display:block;color:var(--muted);font-size:.82rem;font-weight:700;margin-top:3px}
-    .job-row{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}
-    .job-row button{font-size:.92rem;min-height:52px}
-    .danger{background:#733!important}
+    .action-row,.job-row,.row{display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:10px}
+    .danger{background:var(--danger)!important}
     .secondary{background:#1b426d!important}
+    .count{display:block; color:var(--muted); font-size:.82rem; font-weight:700; margin-top:3px}
+    details summary{cursor:pointer; color:var(--muted); font-weight:850}
+    label{display:block; color:var(--muted); font-size:.82rem; margin-bottom:6px}
+    input,textarea{width:100%; background:#071625; color:var(--text); border:1px solid var(--border); border-radius:12px; padding:12px; font-size:1rem}
+    textarea{min-height:78px; resize:vertical}
     .manual-card{display:none}
-    label{display:block;color:var(--muted);font-size:.82rem;margin-bottom:6px}
-    input,textarea{width:100%;background:#071625;color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:1rem;outline:none}
-    textarea{min-height:78px;resize:vertical}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
-    details summary{cursor:pointer;color:var(--muted);font-weight:800;margin-bottom:10px}
-    .small{font-size:.82rem;color:var(--muted);line-height:1.4}
-    .history-item{border-top:1px solid var(--border);padding:9px 0;color:var(--muted);font-size:.9rem}
+    .history-item{border-top:1px solid var(--border); padding:9px 0; color:var(--muted); font-size:.9rem}
     .history-item:first-child{border-top:0}
-    .history-item strong{color:var(--text);font-variant-numeric:tabular-nums}
-    .bottom-voice{position:fixed;left:0;right:0;bottom:0;z-index:50;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(180deg,rgba(7,22,37,0),rgba(7,22,37,.96) 18%,#071625 100%)}
-    .bottom-voice-inner{width:min(720px,100%);margin:0 auto}
-    .voice-button{width:100%;min-height:84px;border-radius:22px;font-size:1.28rem;letter-spacing:.02em;background:linear-gradient(135deg,#1ca55c,#11854b);box-shadow:0 10px 26px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.22)}
-    .voice-button.listening{background:linear-gradient(135deg,#c0392b,#8e2016);animation:pulse 1.2s infinite}
+    .history-item strong{color:var(--text); font-variant-numeric:tabular-nums}
+    .bottom-voice{position:fixed; left:0; right:0; bottom:0; z-index:50; padding:10px 14px calc(10px + env(safe-area-inset-bottom)); background:linear-gradient(180deg,rgba(7,22,37,0),rgba(7,22,37,.96) 18%,#071625 100%)}
+    .bottom-voice-inner{width:min(720px,100%); margin:0 auto}
+    .voice-button{width:100%; min-height:84px; border-radius:22px; font-size:1.28rem; letter-spacing:.02em; background:linear-gradient(135deg,#1ca55c,#11854b); box-shadow:0 10px 26px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.22)}
+    .voice-button.listening{background:linear-gradient(135deg,#c0392b,#8e2016); animation:pulse 1.2s infinite}
     @keyframes pulse{0%{filter:brightness(1)}50%{filter:brightness(1.25)}100%{filter:brightness(1)}}
-    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:70;display:none;align-items:flex-end;justify-content:center}
-    .modal{width:min(720px,100%);max-height:78vh;background:#0b1f3a;border:1px solid var(--border);border-radius:24px 24px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -16px 40px rgba(0,0,0,.5);overflow:auto}
-    .modal-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
-    .modal-header h2{font-size:1.15rem;margin:0}
-    .modal-close{min-height:44px;padding:8px 14px;background:#733}
-    .list-grid{display:grid;grid-template-columns:1fr;gap:8px}
-    .list-grid button{text-align:left;min-height:54px;background:var(--panel2)}
-    .list-grid button.done{background:#244635;color:#e8fff0}
-    .list-grid button .time{display:block;color:var(--muted);font-size:.82rem;margin-top:3px}
-    .results-link{color:#d8ffe8;text-decoration:none;font-weight:800}
-    @media(min-width:480px){.timeline-grid{grid-template-columns:1fr 1fr 1fr}.list-grid{grid-template-columns:1fr 1fr}}
+    .modal-backdrop{position:fixed; inset:0; background:rgba(0,0,0,.62); z-index:70; display:none; align-items:flex-end; justify-content:center}
+    .modal{width:min(720px,100%); max-height:78vh; overflow:auto; background:#0b1f3a; border:1px solid var(--border); border-radius:24px 24px 0 0; padding:14px 14px calc(14px + env(safe-area-inset-bottom)); box-shadow:0 -16px 40px rgba(0,0,0,.5)}
+    .modal-header{display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px}
+    .modal-header h2{font-size:1.15rem; margin:0}
+    .modal-close{min-height:44px; padding:8px 14px; background:var(--danger)}
+    .list-grid{display:grid; grid-template-columns:1fr; gap:8px}
+    .list-grid button{text-align:left; min-height:54px}
+    .list-grid button.done{background:#244635; color:#e8fff0}
+    .list-grid button .time{display:block; color:var(--muted); font-size:.82rem; margin-top:3px}
+    .other-panel{display:none; margin-top:12px; padding-top:12px; border-top:1px solid var(--border)}
+    .other-panel.active{display:block}
+    @media(min-width:480px){.timeline-grid{grid-template-columns:1fr 1fr 1fr} .list-grid{grid-template-columns:1fr 1fr}}
   </style>
 </head>
 <body>
@@ -99,7 +76,7 @@
   <header>
     <div>
       <h1>Timestamp Logger</h1>
-      <div class="sub">Mission timeline · v0.9</div>
+      <div class="sub">Mission timeline · v0.9a</div>
     </div>
     <div class="clock">
       <strong id="clockTime">--:--</strong>
@@ -109,18 +86,22 @@
 
   <section class="card">
     <div id="status" class="status">Ready.</div>
-    <a class="results-button" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">📋 Open Output</a>
+    <a class="output-button" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">📋 Open Output</a>
     <div class="small" style="text-align:center;margin:-2px 0 8px;">Default Magpas output link. Other organisations need their own short link.</div>
     <div id="syncStatus" class="sync-status">Sync status loading...</div>
+
     <div class="timeline-grid" id="timelineGrid"></div>
+
     <div class="action-row">
       <button id="interventionButton">Intervention <span class="count" id="interventionCount">0 logged</span></button>
       <button id="drugButton">Drug <span class="count" id="drugCount">0 logged</span></button>
     </div>
+
     <div class="timeline-grid" id="laterTimelineGrid" style="margin-top:10px;"></div>
+
     <div class="job-row">
       <button class="secondary" id="manualButton">✍️ Manual note</button>
-      <button class="danger" id="completeJobButton">Clear</button>
+      <button class="danger" id="clearButton">Clear</button>
     </div>
   </section>
 
@@ -150,9 +131,6 @@
         <button id="saveSettingsButton">Save setup</button>
         <button id="testButton">Send test</button>
       </div>
-      <p class="small">
-        Data sends to the shared Timestamp Logger backend. Organisation and user are stored locally on this device.
-      </p>
     </details>
   </section>
 
@@ -189,12 +167,11 @@
 </div>
 
 <script>
-const APP_VERSION="0.9";
+const APP_VERSION="0.9a";
 const DEFAULT_ENDPOINT_URL="https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
 const DEFAULT_ORGANISATION="Magpas";
 const DEFAULT_USER="";
 const APP_SOURCE="AndroidPWA";
-const RESULTS_URL="https://tiny.cc/MagpasTimestamp";
 
 const TIMELINE_EVENTS=[
   {label:"Mobile",type:"MOBILE"},
@@ -234,22 +211,14 @@ const DRUGS=[
 ];
 
 const $=id=>document.getElementById(id);
-const state={deferredInstallPrompt:null,recognition:null,isListening:false,modalType:null};
+const state={recognition:null,modalType:null};
 
 function formatTime(date=new Date()){return new Intl.DateTimeFormat("en-GB",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}).format(date)}
 function formatDate(date=new Date()){return new Intl.DateTimeFormat("en-GB",{weekday:"short",day:"2-digit",month:"short"}).format(date)}
 function updateClock(){$("clockTime").textContent=formatTime();$("clockDate").textContent=formatDate();}
 function setStatus(message,kind=""){const el=$("status");el.className="status"+(kind?" "+kind:"");el.textContent=message;}
-function loadSettings(){
-  $("organisation").value=localStorage.getItem("timestamp_organisation")||DEFAULT_ORGANISATION;
-  $("userName").value=localStorage.getItem("timestamp_user")||DEFAULT_USER;
-  if(!$("userName").value.trim()) $("setupDetails").open=true;
-}
-function saveSettings(){
-  localStorage.setItem("timestamp_organisation",$("organisation").value.trim());
-  localStorage.setItem("timestamp_user",$("userName").value.trim());
-  setStatus("User setup saved.","ok");
-}
+function loadSettings(){$("organisation").value=localStorage.getItem("timestamp_organisation")||DEFAULT_ORGANISATION;$("userName").value=localStorage.getItem("timestamp_user")||DEFAULT_USER;if(!$("userName").value.trim()) $("setupDetails").open=true;}
+function saveSettings(){localStorage.setItem("timestamp_organisation",$("organisation").value.trim());localStorage.setItem("timestamp_user",$("userName").value.trim());setStatus("User setup saved.","ok");}
 function getEndpoint(){return DEFAULT_ENDPOINT_URL.trim()}
 function getOrganisation(){return (localStorage.getItem("timestamp_organisation")||DEFAULT_ORGANISATION||"").trim()}
 function getUserName(){return (localStorage.getItem("timestamp_user")||DEFAULT_USER||"").trim()}
@@ -257,6 +226,9 @@ function getCompletions(){return JSON.parse(localStorage.getItem("timestamp_comp
 function setCompletions(obj){localStorage.setItem("timestamp_completions",JSON.stringify(obj))}
 function getHistory(){return JSON.parse(localStorage.getItem("timestamp_history")||"[]")}
 function setHistory(arr){localStorage.setItem("timestamp_history",JSON.stringify(arr.slice(0,80)))}
+function getPendingQueue(){return JSON.parse(localStorage.getItem("timestamp_pending_queue")||"[]")}
+function setPendingQueue(queue){localStorage.setItem("timestamp_pending_queue",JSON.stringify(queue))}
+function makeLocalId(){return "local-"+Date.now()+"-"+Math.random().toString(36).slice(2,10)}
 
 function buildPayload({eventType,note,category}){
   const d=new Date();
@@ -272,7 +244,9 @@ function buildPayload({eventType,note,category}){
     organisation:getOrganisation(),
     source:APP_SOURCE,
     app_version:APP_VERSION,
-    user_agent:navigator.userAgent
+    user_agent:navigator.userAgent,
+    local_id:makeLocalId(),
+    sync_status:"pending"
   };
 }
 
@@ -280,13 +254,10 @@ async function postTimestamp(payload, markComplete=true){
   if(!payload.user){setStatus("Add user/callsign in User setup before logging.","warn");$("setupDetails").open=true;return false}
   if(!payload.organisation){setStatus("Add organisation in User setup before logging.","warn");$("setupDetails").open=true;return false}
 
-  payload.local_id = payload.local_id || makeLocalId();
-  payload.sync_status = "pending";
-
   saveHistory(payload);
   enqueuePending(payload);
 
-  if(markComplete && payload.event_type && !["VOICE_NOTE","MANUAL_NOTE","TEST","JOB_COMPLETE","CLEAR"].includes(payload.event_type)){
+  if(markComplete && payload.event_type && !["VOICE_NOTE","MANUAL_NOTE","TEST","CLEAR","JOB_COMPLETE"].includes(payload.event_type)){
     const done=getCompletions();
     done[payload.event_type]={time:payload.event_time_local,note:payload.note,category:payload.event_category};
     setCompletions(done);
@@ -296,135 +267,60 @@ async function postTimestamp(payload, markComplete=true){
   updateSyncStatus();
   setStatus(`Saved locally: ${payload.event_time_local} ${payload.note||payload.event_type}`,"warn");
   vibrate([40]);
-
   await syncPending();
-
   return true;
 }
 
-function makeLocalId(){
-  return "local-" + Date.now() + "-" + Math.random().toString(36).slice(2,10);
-}
-
-function getPendingQueue(){
-  return JSON.parse(localStorage.getItem("timestamp_pending_queue")||"[]");
-}
-
-function setPendingQueue(queue){
-  localStorage.setItem("timestamp_pending_queue", JSON.stringify(queue));
-}
-
-function enqueuePending(payload){
-  const queue=getPendingQueue();
-  if(!queue.some(item=>item.local_id===payload.local_id)){
-    queue.push(payload);
-    setPendingQueue(queue);
-  }
-}
-
-function markHistorySent(localId){
-  const history=getHistory();
-  const updated=history.map(item=>{
-    if(item.local_id===localId){
-      return {...item, sync_status:"sent"};
-    }
-    return item;
-  });
-  setHistory(updated);
-}
+function enqueuePending(payload){const q=getPendingQueue();if(!q.some(x=>x.local_id===payload.local_id)){q.push(payload);setPendingQueue(q);}}
+function saveHistory(payload){const h=getHistory();h.unshift(payload);setHistory(h);}
+function markHistorySent(localId){setHistory(getHistory().map(x=>x.local_id===localId?{...x,sync_status:"sent"}:x));}
 
 async function syncPending(){
-  const endpoint=getEndpoint();
-  if(!endpoint) return;
-  if(!navigator.onLine){
-    updateSyncStatus();
-    return;
-  }
-
-  let queue=getPendingQueue();
-  if(!queue.length){
-    updateSyncStatus();
-    return;
-  }
-
-  setStatus(`Syncing ${queue.length} pending...`);
-
-  const stillPending=[];
-
-  for(const item of queue){
+  if(!navigator.onLine){updateSyncStatus();return}
+  let q=getPendingQueue();
+  if(!q.length){updateSyncStatus();return}
+  setStatus(`Syncing ${q.length} pending...`);
+  const still=[];
+  for(const item of q){
     try{
-      await fetch(endpoint,{
-        method:"POST",
-        mode:"no-cors",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({...item, sync_status:"sent"})
-      });
+      await fetch(getEndpoint(),{method:"POST",mode:"no-cors",headers:{"Content-Type":"application/json"},body:JSON.stringify({...item,sync_status:"sent"})});
       markHistorySent(item.local_id);
-    }catch(err){
-      stillPending.push(item);
-    }
+    }catch(err){still.push(item);}
   }
-
-  setPendingQueue(stillPending);
+  setPendingQueue(still);
   renderHistory();
   updateSyncStatus();
-
-  if(stillPending.length){
-    setStatus(`${stillPending.length} pending sync. Will retry when online.`,"warn");
-  }else{
-    setStatus("All synced.","ok");
-  }
+  setStatus(still.length?`${still.length} pending sync. Will retry.`:"All synced.",still.length?"warn":"ok");
 }
 
 function updateSyncStatus(){
-  const el=$("syncStatus");
-  if(!el) return;
+  const el=$("syncStatus"); if(!el) return;
   const count=getPendingQueue().length;
-  if(!navigator.onLine){
-    el.className="sync-status bad";
-    el.textContent=count ? `Offline · ${count} pending` : "Offline";
-  }else if(count){
-    el.className="sync-status warn";
-    el.textContent=`Online · ${count} pending sync`;
-  }else{
-    el.className="sync-status ok";
-    el.textContent="Online · all synced";
-  }
+  if(!navigator.onLine){el.className="sync-status bad";el.textContent=count?`Offline · ${count} pending`:"Offline";}
+  else if(count){el.className="sync-status warn";el.textContent=`Online · ${count} pending sync`;}
+  else{el.className="sync-status ok";el.textContent="Online · all synced";}
 }
 
 function vibrate(pattern){if("vibrate" in navigator) navigator.vibrate(pattern)}
-
-function saveHistory(payload){
-  const history=getHistory();
-  history.unshift(payload);
-  setHistory(history);
-}
 
 function renderTimeline(){
   const done=getCompletions();
   const topGrid=$("timelineGrid");
   const laterGrid=$("laterTimelineGrid");
   topGrid.innerHTML="";
-  if(laterGrid) laterGrid.innerHTML="";
-
-  const topEvents=["MOBILE","LANDED","ARRIVE_SCENE","WITH_PATIENT"];
-  const laterEvents=["READY_TO_LEAVE_SCENE","DEPART_SCENE","HOSPITAL_ARRIVAL","HANDOVER_COMPLETE"];
+  laterGrid.innerHTML="";
+  const topTypes=["MOBILE","LANDED","ARRIVE_SCENE","WITH_PATIENT"];
+  const laterTypes=["READY_TO_LEAVE_SCENE","DEPART_SCENE","HOSPITAL_ARRIVAL","HANDOVER_COMPLETE"];
 
   TIMELINE_EVENTS.forEach(ev=>{
     const btn=document.createElement("button");
     btn.className="timeline-btn"+(done[ev.type]?" done":"");
     btn.innerHTML=`<span class="label">${escapeHtml(ev.label)}</span><span class="time">${done[ev.type]?.time||""}</span>`;
     btn.addEventListener("click",()=>postTimestamp(buildPayload({eventType:ev.type,note:ev.label,category:"timeline"})));
-
-    if(topEvents.includes(ev.type)){
-      topGrid.appendChild(btn);
-    }else if(laterGrid && laterEvents.includes(ev.type)){
-      if(ev.type==="READY_TO_LEAVE_SCENE"){
-        btn.style.gridColumn="1 / -1";
-      }
+    if(topTypes.includes(ev.type)) topGrid.appendChild(btn);
+    else if(laterTypes.includes(ev.type)){
+      if(ev.type==="READY_TO_LEAVE_SCENE") btn.style.gridColumn="1 / -1";
       laterGrid.appendChild(btn);
-    }else{
-      topGrid.appendChild(btn);
     }
   });
 }
@@ -438,10 +334,9 @@ function renderCounts(){
 }
 
 function renderHistory(){
-  const history=getHistory();
-  const el=$("history");
-  if(!history.length){el.innerHTML='<div class="small">No entries logged from this device yet.</div>';return;}
-  el.innerHTML=history.map(item=>`<div class="history-item"><strong>${escapeHtml(item.event_time_local||"")}</strong> ${escapeHtml(item.note||item.event_type||"")}<br /><span class="small">${escapeHtml(item.event_category||"")} · ${escapeHtml(item.organisation||"")} / ${escapeHtml(item.user||"")} · ${escapeHtml(item.sync_status||"sent")}</span></div>`).join("");
+  const h=getHistory(); const el=$("history");
+  if(!h.length){el.innerHTML='<div class="small">No entries logged from this device yet.</div>';return;}
+  el.innerHTML=h.map(item=>`<div class="history-item"><strong>${escapeHtml(item.event_time_local||"")}</strong> ${escapeHtml(item.note||item.event_type||"")}<br><span class="small">${escapeHtml(item.event_category||"")} · ${escapeHtml(item.organisation||"")} / ${escapeHtml(item.user||"")} · ${escapeHtml(item.sync_status||"sent")}</span></div>`).join("");
 }
 
 function renderAll(){renderTimeline();renderCounts();renderHistory();}
@@ -453,149 +348,56 @@ function openModal(type){
   $("otherLabel").textContent=type==="intervention"?"Other intervention":"Other drug";
   $("otherText").value="";
   $("otherPanel").classList.remove("active");
-
   const done=getCompletions();
-  const list=$("modalList");
-  list.innerHTML="";
-
+  const list=$("modalList"); list.innerHTML="";
   items.forEach(item=>{
     const btn=document.createElement("button");
     btn.className=done[item.type]?"done":"";
     btn.innerHTML=`${escapeHtml(item.label)}${done[item.type]?`<span class="time">✓ ${escapeHtml(done[item.type].time)}</span>`:""}`;
-    btn.addEventListener("click",()=>{
-      closeModal();
-      postTimestamp(buildPayload({eventType:item.type,note:item.label,category:type}));
-    });
+    btn.addEventListener("click",()=>{closeModal();postTimestamp(buildPayload({eventType:item.type,note:item.label,category:type}));});
     list.appendChild(btn);
   });
-
-  const otherBtn=document.createElement("button");
-  otherBtn.textContent="Other...";
-  otherBtn.addEventListener("click",()=>{
-    $("otherPanel").classList.add("active");
-    $("otherText").focus();
-  });
-  list.appendChild(otherBtn);
-
+  const other=document.createElement("button");
+  other.textContent="Other...";
+  other.addEventListener("click",()=>{$("otherPanel").classList.add("active");$("otherText").focus();});
+  list.appendChild(other);
   $("modalBackdrop").style.display="flex";
 }
 
-function slugifyEventType(prefix, text){
-  const cleaned=String(text||"")
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g,"_")
-    .replace(/^_+|_+$/g,"")
-    .slice(0,60);
-  return `${prefix}_OTHER_${cleaned||"UNSPECIFIED"}`;
-}
-
-function sendOtherItem(){
-  const text=$("otherText").value.trim();
-  if(!text){
-    setStatus("Enter the other item first.","warn");
-    return;
-  }
-  const type=state.modalType;
-  const prefix=type==="drug"?"DRUG":"INTERVENTION";
-  closeModal();
-  postTimestamp(buildPayload({
-    eventType:slugifyEventType(prefix,text),
-    note:text,
-    category:type
-  }));
-}
-
-function dictateOtherItem(){
-  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SpeechRecognition){
-    setStatus("Dictation is not supported in this browser. Type the item instead.","warn");
-    return;
-  }
-
-  const recognition=new SpeechRecognition();
-  recognition.lang="en-GB";
-  recognition.interimOutput=false;
-  recognition.maxAlternatives=1;
-  recognition.continuous=false;
-
-  recognition.onstart=()=>setStatus("Listening for other item...");
-  recognition.onerror=e=>setStatus("Other item dictation error: "+e.error,"bad");
-  recognition.onresult=e=>{
-    const text=e.results?.[0]?.[0]?.transcript||"";
-    if(text.trim()){
-      $("otherText").value=text.trim();
-      setStatus("Dictation captured. Tap Send other.","ok");
-    } else {
-      setStatus("No speech detected.","warn");
-    }
-  };
-
-  try{recognition.start()}catch(err){setStatus("Could not start dictation: "+err.message,"bad")}
-}
-
 function closeModal(){$("modalBackdrop").style.display="none";state.modalType=null;$("otherPanel").classList.remove("active")}
-
-function escapeHtml(str){return String(str).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
+function slugifyEventType(prefix,text){const cleaned=String(text||"").trim().toUpperCase().replace(/[^A-Z0-9]+/g,"_").replace(/^_+|_+$/g,"").slice(0,60);return `${prefix}_OTHER_${cleaned||"UNSPECIFIED"}`;}
+function sendOtherItem(){const text=$("otherText").value.trim();if(!text){setStatus("Enter the other item first.","warn");return} const type=state.modalType; const prefix=type==="drug"?"DRUG":"INTERVENTION"; closeModal(); postTimestamp(buildPayload({eventType:slugifyEventType(prefix,text),note:text,category:type}));}
+function dictateOtherItem(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){setStatus("Dictation not supported. Type the item.","warn");return} const r=new SR();r.lang="en-GB";r.interimResults=false;r.maxAlternatives=1;r.onstart=()=>setStatus("Listening for other item...");r.onerror=e=>setStatus("Other item dictation error: "+e.error,"bad");r.onresult=e=>{const text=e.results?.[0]?.[0]?.transcript||"";if(text.trim()){$("otherText").value=text.trim();setStatus("Dictation captured. Tap Send other.","ok");}else setStatus("No speech detected.","warn");};try{r.start()}catch(err){setStatus("Could not start dictation: "+err.message,"bad")}}
 
 function setupSpeechRecognition(){
-  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SpeechRecognition){
-    $("voiceButton").disabled=true;
-    $("voiceButton").textContent="🎙️ Voice not supported";
-    setStatus("Speech recognition is not supported in this browser. Use Manual note.","warn");
-    return;
-  }
-  const recognition=new SpeechRecognition();
-  recognition.lang="en-GB";
-  recognition.interimOutput=false;
-  recognition.maxAlternatives=1;
-  recognition.continuous=false;
-  recognition.onstart=()=>{state.isListening=true;$("voiceButton").classList.add("listening");$("voiceButton").textContent="🔴 LISTENING...";setStatus("Listening...")};
-  recognition.onerror=e=>{state.isListening=false;$("voiceButton").classList.remove("listening");$("voiceButton").textContent="🎙️ VOICE NOTE";setStatus("Voice recognition error: "+e.error,"bad")};
-  recognition.onend=()=>{state.isListening=false;$("voiceButton").classList.remove("listening");$("voiceButton").textContent="🎙️ VOICE NOTE"};
-  recognition.onresult=e=>{
-    const text=e.results?.[0]?.[0]?.transcript||"";
-    if(!text.trim()){setStatus("No speech detected.","warn");return;}
-    postTimestamp(buildPayload({eventType:"VOICE_NOTE",note:text.trim(),category:"voice"}),false);
-  };
-  state.recognition=recognition;
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){$("voiceButton").disabled=true;$("voiceButton").textContent="🎙️ Voice not supported";setStatus("Speech recognition not supported. Use Manual note.","warn");return}
+  const r=new SR(); r.lang="en-GB"; r.interimResults=false; r.maxAlternatives=1; r.continuous=false;
+  r.onstart=()=>{$("voiceButton").classList.add("listening");$("voiceButton").textContent="🔴 LISTENING...";setStatus("Listening...")};
+  r.onerror=e=>{$("voiceButton").classList.remove("listening");$("voiceButton").textContent="🎙️ VOICE NOTE";setStatus("Voice error: "+e.error,"bad")};
+  r.onend=()=>{$("voiceButton").classList.remove("listening");$("voiceButton").textContent="🎙️ VOICE NOTE"};
+  r.onresult=e=>{const text=e.results?.[0]?.[0]?.transcript||"";if(text.trim()) postTimestamp(buildPayload({eventType:"VOICE_NOTE",note:text.trim(),category:"voice"}),false); else setStatus("No speech detected.","warn");};
+  state.recognition=r;
 }
 
-function startVoice(){
-  if(!state.recognition){setStatus("Voice recognition is not available. Use Manual note.","warn");return}
-  try{state.recognition.start()}catch(err){setStatus("Could not start voice recognition: "+err.message,"bad")}
-}
+function startVoice(){if(!state.recognition){setStatus("Voice unavailable. Use Manual note.","warn");return} try{state.recognition.start()}catch(err){setStatus("Could not start voice: "+err.message,"bad")}}
+function showManual(show){$("manualCard").style.display=show?"block":"none"; if(show) $("manualNote").focus();}
 
-function showManual(show){$("manualCard").style.display=show?"block":"none";if(show)$("manualNote").focus()}
-
-async function completeJob(){
-  const ok=confirm("End patient episode?
-
-This will clear the local timeline.
-
-Output: tiny.cc/MagpasTimestamp");
+async function clearEpisode(){
+  const ok=confirm("End patient episode?\n\nThis will clear the local timeline.\n\nOutput: tiny.cc/MagpasTimestamp");
   if(!ok) return;
-
   const payload=buildPayload({eventType:"CLEAR",note:"Patient episode cleared",category:"job"});
   await postTimestamp(payload,false);
-
   const completed=JSON.parse(localStorage.getItem("timestamp_completed_jobs")||"[]");
-  completed.unshift({
-    cleared_at:new Date().toISOString(),
-    user:getUserName(),
-    organisation:getOrganisation(),
-    entries:getHistory()
-  });
+  completed.unshift({cleared_at:new Date().toISOString(),user:getUserName(),organisation:getOrganisation(),entries:getHistory()});
   localStorage.setItem("timestamp_completed_jobs",JSON.stringify(completed.slice(0,5)));
-
   localStorage.removeItem("timestamp_completions");
   localStorage.removeItem("timestamp_history");
   renderAll();
   setStatus("Patient episode cleared. Output: tiny.cc/MagpasTimestamp","ok");
 }
 
-function setupInstallPrompt(){}
+function escapeHtml(str){return String(str).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
 
 async function registerServiceWorker(){if("serviceWorker" in navigator){try{await navigator.serviceWorker.register("service-worker.js")}catch(err){console.warn("Service worker registration failed",err)}}}
 
@@ -605,28 +407,20 @@ function bindEvents(){
   $("voiceButton").addEventListener("click",startVoice);
   $("manualButton").addEventListener("click",()=>showManual(true));
   $("cancelManualButton").addEventListener("click",()=>showManual(false));
-  $("sendManualButton").addEventListener("click",()=>{
-    const note=$("manualNote").value.trim();
-    if(!note){setStatus("Enter a note first.","warn");return}
-    postTimestamp(buildPayload({eventType:"MANUAL_NOTE",note,category:"manual"}),false);
-    $("manualNote").value="";
-    showManual(false);
-  });
+  $("sendManualButton").addEventListener("click",()=>{const note=$("manualNote").value.trim();if(!note){setStatus("Enter a note first.","warn");return} postTimestamp(buildPayload({eventType:"MANUAL_NOTE",note,category:"manual"}),false);$("manualNote").value="";showManual(false);});
   $("interventionButton").addEventListener("click",()=>openModal("intervention"));
   $("drugButton").addEventListener("click",()=>openModal("drug"));
   $("modalClose").addEventListener("click",closeModal);
   $("modalBackdrop").addEventListener("click",e=>{if(e.target===$("modalBackdrop")) closeModal()});
   $("otherSendButton").addEventListener("click",sendOtherItem);
   $("otherDictateButton").addEventListener("click",dictateOtherItem);
-  $("completeJobButton").addEventListener("click",completeJob);
+  $("clearButton").addEventListener("click",clearEpisode);
 }
 
 function init(){
-  updateClock();setInterval(updateClock,1000);
-  loadSettings();renderAll();
-  setupSpeechRecognition();setupInstallPrompt();bindEvents();registerServiceWorker();
-  updateSyncStatus();
-  syncPending();
+  updateClock(); setInterval(updateClock,1000);
+  loadSettings(); renderAll(); setupSpeechRecognition(); bindEvents(); registerServiceWorker();
+  updateSyncStatus(); syncPending();
   window.addEventListener("online",()=>{updateSyncStatus();syncPending();});
   window.addEventListener("offline",updateSyncStatus);
   setInterval(syncPending,30000);
