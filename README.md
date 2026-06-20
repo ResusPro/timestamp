@@ -1,26 +1,27 @@
-# Timestamp Logger PWA v1.1.1
+# Timestamp Logger PWA v1.1.4
 
-Bug-fix release after v1.1 UI regression.
+Requires Backend v1.1.1.
 
-## Fixes
+## Changes
 
-- Restores top timeline buttons.
-- Restores visible current time.
-- Removes Mark/Generic entirely.
-- Keeps Intervention and Drug selectors.
-- Keeps Ready to Leave Scene, Depart Scene, Hospital Arrival, Handover Complete.
-- Keeps Clear workflow.
-- Keeps backend v1.1 shared active episode pull.
-- Keeps patient contact timer.
+- Aligns with operational meaning of **Clear**:
+  - clear from job
+  - available for next patient
+  - episode remains available in Output
+- Clear now resets active local UI and timer.
+- Backend `CLEAR` closes active episode state.
+- Next Mobile / With Patient starts a fresh session.
+- Mark/Generic removed.
+- Sync status remains in Local Timeline.
+- Output remains a small header link.
 
-## Requires
+## Deploy
 
-Backend v1.1.
+Replace GitHub Pages files:
 
-## Timer
+- index.html
+- manifest.json
+- service-worker.js
+- icons
 
-Starts at `WITH_PATIENT`.
-
-Stops at `HANDOVER_COMPLETE`.
-
-Clears with `CLEAR`.
+Then hard refresh / clear PWA cache if needed.
