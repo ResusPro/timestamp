@@ -1,34 +1,513 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#071625"><title>Timestamp Logger</title><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-192.png"><style>
-:root{--bg:#071625;--panel:#10263f;--panel2:#1b426d;--text:#f3f7fb;--muted:#b8c7d6;--accent:#33d17a;--warn:#ffcc00;--danger:#8a3333;--border:rgba(255,255,255,.16);--bottomPad:116px}*{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text);background:radial-gradient(circle at top,#153c66 0,#071625 42%,#04101c 100%);padding:env(safe-area-inset-top) 14px calc(var(--bottomPad) + env(safe-area-inset-bottom))}main{width:min(720px,100%);margin:0 auto;padding:14px 0 20px}header{display:flex;justify-content:space-between;gap:10px;margin-bottom:12px}h1{font-size:1.35rem;margin:0 0 2px;line-height:1.1}.sub,.small{color:var(--muted);font-size:.84rem;line-height:1.35}.clock{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;min-width:92px}.clock strong{display:block;color:var(--text);font-size:1.15rem}.card{background:rgba(16,38,63,.94);border:1px solid var(--border);border-radius:18px;padding:13px;margin-bottom:12px;box-shadow:0 12px 32px rgba(0,0,0,.28)}.status,.sync-status{border-radius:14px;padding:10px 12px;margin-bottom:10px;background:rgba(255,255,255,.08);color:var(--muted);text-align:center;font-size:.9rem;font-weight:700}.status.ok,.sync-status.ok{color:#d8ffe8;background:rgba(51,209,122,.16)}.status.warn,.sync-status.warn{color:#fff4c2;background:rgba(255,204,0,.16)}.status.bad,.sync-status.bad{color:#ffe1e1;background:rgba(255,92,92,.16)}.scene-timer{display:none;border-radius:18px;padding:13px;margin-bottom:10px;text-align:center;background:rgba(51,209,122,.16);box-shadow:inset 0 0 0 1px rgba(51,209,122,.28)}.scene-timer.active{display:block}.scene-timer.warn{background:rgba(255,204,0,.18);box-shadow:inset 0 0 0 1px rgba(255,204,0,.32)}.scene-timer.bad{background:rgba(255,92,92,.18);box-shadow:inset 0 0 0 1px rgba(255,92,92,.32)}.scene-label{font-size:.78rem;color:var(--muted);font-weight:900;letter-spacing:.08em;text-transform:uppercase}.scene-time{font-size:2rem;font-weight:950;font-variant-numeric:tabular-nums;line-height:1.05;margin-top:3px}.output-button{display:block;text-align:center;margin:0 0 8px;padding:10px 12px;border-radius:14px;background:rgba(51,209,122,.16);color:#d8ffe8;text-decoration:none;font-weight:900;box-shadow:inset 0 0 0 1px rgba(51,209,122,.28)}button{appearance:none;border:0;border-radius:15px;padding:12px;min-height:56px;color:var(--text);background:var(--panel2);font-size:.98rem;font-weight:850;box-shadow:inset 0 0 0 1px var(--border);touch-action:manipulation}button:active{transform:translateY(1px)}.timeline-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.timeline-btn{text-align:left;position:relative;min-height:62px}.timeline-btn .label{display:block;line-height:1.1}.timeline-btn .time{display:block;color:var(--muted);font-size:.83rem;margin-top:5px;font-variant-numeric:tabular-nums}.timeline-btn.done{background:#244635;color:#e8fff0}.timeline-btn.done::after{content:"✓";position:absolute;top:10px;right:12px;color:var(--accent);font-size:1.2rem}.timeline-btn.done .time{color:#d8ffe8}.action-row,.job-row,.row{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}.danger{background:var(--danger)!important}.secondary{background:#1b426d!important}.mark{background:#52527a!important}.count{display:block;color:var(--muted);font-size:.82rem;font-weight:700;margin-top:3px}details summary{cursor:pointer;color:var(--muted);font-weight:850}label{display:block;color:var(--muted);font-size:.82rem;margin-bottom:6px}input,textarea{width:100%;background:#071625;color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:1rem}textarea{min-height:78px;resize:vertical}.manual-card{display:none}.history-item{border-top:1px solid var(--border);padding:9px 0;color:var(--muted);font-size:.9rem}.history-item:first-child{border-top:0}.history-item strong{color:var(--text);font-variant-numeric:tabular-nums}.bottom-voice{position:fixed;left:0;right:0;bottom:0;z-index:50;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(180deg,rgba(7,22,37,0),rgba(7,22,37,.96) 18%,#071625)}.bottom-voice-inner{width:min(720px,100%);margin:0 auto}.voice-button{width:100%;min-height:84px;border-radius:22px;font-size:1.28rem;letter-spacing:.02em;background:linear-gradient(135deg,#1ca55c,#11854b);box-shadow:0 10px 26px rgba(0,0,0,.35),inset 0 0 0 1px rgba(255,255,255,.22)}.voice-button.listening{background:linear-gradient(135deg,#c0392b,#8e2016);animation:pulse 1.2s infinite}@keyframes pulse{0%{filter:brightness(1)}50%{filter:brightness(1.25)}100%{filter:brightness(1)}}.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:70;display:none;align-items:flex-end;justify-content:center}.modal{width:min(720px,100%);max-height:78vh;overflow:auto;background:#0b1f3a;border:1px solid var(--border);border-radius:24px 24px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -16px 40px rgba(0,0,0,.5)}.modal-header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.modal-header h2{font-size:1.15rem;margin:0}.modal-close{min-height:44px;padding:8px 14px;background:var(--danger)}.list-grid{display:grid;grid-template-columns:1fr;gap:8px}.list-grid button{text-align:left;min-height:54px}.list-grid button.done{background:#244635;color:#e8fff0}.list-grid button .time{display:block;color:var(--muted);font-size:.82rem;margin-top:3px}.other-panel{display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}.other-panel.active{display:block}@media(min-width:480px){.timeline-grid{grid-template-columns:1fr 1fr 1fr}.list-grid{grid-template-columns:1fr 1fr}}
-</style></head><body><main><header><div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.1</div></div><div class="clock"><strong id="clockTime">--:--</strong><span id="clockDate">--</span></div></header><section class="card"><div id="sceneTimer" class="scene-timer"><div class="scene-label">Patient contact time</div><div id="sceneTime" class="scene-time">00:00:00</div><div class="small" id="sessionLine">Shared episode state</div></div><div id="status" class="status">Ready.</div><a class="output-button" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">📋 Open Output</a><div class="small" style="text-align:center;margin:-2px 0 8px;">Default Magpas output link. Other organisations need their own short link.</div><div id="syncStatus" class="sync-status">Sync status loading...</div><div class="timeline-grid" id="timelineGrid"></div><div class="action-row"><button id="interventionButton">Intervention <span class="count" id="interventionCount">0 logged</span></button><button id="drugButton">Drug <span class="count" id="drugCount">0 logged</span></button></div><div class="timeline-grid" id="laterTimelineGrid" style="margin-top:10px;"></div><div class="job-row"><button class="mark" id="markButton">📍 Mark</button><button class="danger" id="clearButton">Clear</button></div><div class="job-row"><button class="secondary" id="manualButton">✍️ Manual note</button><button class="secondary" id="testButton">Send test</button></div></section><section class="card manual-card" id="manualCard"><label for="manualNote">Manual note</label><textarea id="manualNote" placeholder="e.g. Tourniquet applied left thigh"></textarea><div class="row"><button class="secondary" id="sendManualButton">Send note</button><button class="danger" id="cancelManualButton">Cancel</button></div></section><section class="card"><details id="setupDetails"><summary>User setup</summary><div class="row"><div><label for="organisation">Organisation</label><input id="organisation" placeholder="e.g. Magpas"></div><div><label for="userName">User / callsign</label><input id="userName" placeholder="e.g. Nick"></div></div><div class="row"><button id="saveSettingsButton">Save setup</button><button id="pullStateButton">Pull shared state</button></div><div class="small" id="activeEpisodeDebug" style="margin-top:8px;"></div></details></section><section class="card"><details open><summary>Local timeline</summary><div id="history"></div></details></section></main><div class="bottom-voice"><div class="bottom-voice-inner"><button class="voice-button" id="voiceButton">🎙️ VOICE NOTE</button></div></div><div class="modal-backdrop" id="modalBackdrop"><div class="modal" role="dialog" aria-modal="true"><div class="modal-header"><h2 id="modalTitle">Select</h2><button class="modal-close" id="modalClose">Close</button></div><div class="list-grid" id="modalList"></div><div class="other-panel" id="otherPanel"><label id="otherLabel" for="otherText">Other</label><textarea id="otherText" placeholder="Type other item, e.g. Magnesium"></textarea><div class="row"><button class="secondary" id="otherDictateButton">🎙️ Dictate</button><button class="secondary" id="otherSendButton">Send other</button></div></div></div></div><script>
-const APP_VERSION='1.1', DEFAULT_ENDPOINT_URL='https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec', DEFAULT_ORGANISATION='Magpas', DEFAULT_USER='', APP_SOURCE='PWA';
-const TIMELINE_EVENTS=[{label:'Mobile',type:'MOBILE'},{label:'Landed',type:'LANDED'},{label:'Arrive Scene',type:'ARRIVE_SCENE'},{label:'With Patient',type:'WITH_PATIENT'},{label:'Ready to Leave Scene',type:'READY_TO_LEAVE_SCENE'},{label:'Depart Scene',type:'DEPART_SCENE'},{label:'Hospital Arrival',type:'HOSPITAL_ARRIVAL'},{label:'Handover Complete',type:'HANDOVER_COMPLETE'}];
-const INTERVENTIONS=[{label:'Arterial Line',type:'ARTERIAL_LINE'},{label:'ETT',type:'ETT'},{label:'FAST',type:'FAST'},{label:'FIB',type:'FIB'},{label:'Haemostatic Dressing',type:'HAEMOSTATIC_DRESSING'},{label:'IO Access',type:'IO_ACCESS'},{label:'IV Access',type:'IV_ACCESS'},{label:'Pelvic Binder',type:'PELVIC_BINDER'},{label:'PHEA',type:'PHEA'},{label:'ROSC',type:'ROSC'},{label:'Thoracostomy',type:'THORACOSTOMY'},{label:'Tourniquet',type:'TOURNIQUET'}];
-const DRUGS=[{label:'Adrenaline',type:'ADRENALINE'},{label:'Blood',type:'BLOOD'},{label:'Calcium',type:'CALCIUM'},{label:'Fentanyl',type:'FENTANYL'},{label:'Ketamine',type:'KETAMINE'},{label:'Midazolam',type:'MIDAZOLAM'},{label:'Rocuronium',type:'ROCURONIUM'},{label:'TXA',type:'TXA'}];
-const $=id=>document.getElementById(id); const state={recognition:null,modalType:null,sceneAlertLevel:0,lastPullAt:0};
-function formatTime(d=new Date()){return new Intl.DateTimeFormat('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(d)} function formatDate(d=new Date()){return new Intl.DateTimeFormat('en-GB',{weekday:'short',day:'2-digit',month:'short'}).format(d)} function updateClock(){$('clockTime').textContent=formatTime();$('clockDate').textContent=formatDate();updateSceneTimer();updateSyncStatus();} function setStatus(m,k=''){const e=$('status');e.className='status'+(k?' '+k:'');e.textContent=m;}
-function loadSettings(){$('organisation').value=localStorage.getItem('timestamp_organisation')||DEFAULT_ORGANISATION;$('userName').value=localStorage.getItem('timestamp_user')||DEFAULT_USER;if(!$('userName').value.trim())$('setupDetails').open=true;} function saveSettings(){localStorage.setItem('timestamp_organisation',$('organisation').value.trim());localStorage.setItem('timestamp_user',$('userName').value.trim());setStatus('User setup saved.','ok');pullActiveEpisode(true);}
-function getEndpoint(){return DEFAULT_ENDPOINT_URL.trim()} function getOrganisation(){return(localStorage.getItem('timestamp_organisation')||DEFAULT_ORGANISATION||'').trim()} function getUserName(){return(localStorage.getItem('timestamp_user')||DEFAULT_USER||'').trim()} function getCompletions(){return JSON.parse(localStorage.getItem('timestamp_completions')||'{}')} function setCompletions(o){localStorage.setItem('timestamp_completions',JSON.stringify(o))} function getHistory(){return JSON.parse(localStorage.getItem('timestamp_history')||'[]')} function setHistory(a){localStorage.setItem('timestamp_history',JSON.stringify(a.slice(0,100)))} function getPendingQueue(){return JSON.parse(localStorage.getItem('timestamp_pending_queue')||'[]')} function setPendingQueue(q){localStorage.setItem('timestamp_pending_queue',JSON.stringify(q))} function makeLocalId(){return 'local-'+Date.now()+'-'+Math.random().toString(36).slice(2,10)} function getSessionId(){return localStorage.getItem('timestamp_session_id')||''} function setSessionId(id){if(id)localStorage.setItem('timestamp_session_id',id)}
-function buildPayload({eventType,note,category,extra={}}){const d=new Date();return{event_time:d.toISOString(),event_time_local:formatTime(d),event_date_local:formatDate(d),event_type:eventType||'VOICE_NOTE',event_category:category||'',note:note||'',prompt:`${formatTime(d)} - ${note||eventType||''}`,user:getUserName(),organisation:getOrganisation(),source:APP_SOURCE,app_version:APP_VERSION,user_agent:navigator.userAgent,local_id:makeLocalId(),session_id:getSessionId(),sync_status:'pending',...extra}}
-async function postTimestamp(payload,markComplete=true){if(!payload.user){setStatus('Add user/callsign in User setup before logging.','warn');$('setupDetails').open=true;return false} saveHistory(payload);enqueuePending(payload);if(markComplete&&!['VOICE_NOTE','MANUAL_NOTE','TEST','CLEAR','JOB_COMPLETE','MARK'].includes(payload.event_type)){const d=getCompletions();d[payload.event_type]={time:payload.event_time_local,note:payload.note,category:payload.event_category,event_time:payload.event_time,source:payload.source,app_version:payload.app_version};setCompletions(d)} handleTimerEvent(payload);renderAll();updateSyncStatus();setStatus(`Saved locally: ${payload.event_time_local} ${payload.note||payload.event_type}`,'warn');vibrate([40]);await syncPending();await pullActiveEpisode(false);return true;}
-function handleTimerEvent(p){if(p.event_type==='WITH_PATIENT'){localStorage.setItem('timestamp_scene_start',p.event_time);localStorage.removeItem('timestamp_scene_stop');state.sceneAlertLevel=0} if(p.event_type==='HANDOVER_COMPLETE')localStorage.setItem('timestamp_scene_stop',p.event_time); if(p.event_type==='CLEAR'){['timestamp_scene_start','timestamp_scene_stop','timestamp_session_id'].forEach(k=>localStorage.removeItem(k));state.sceneAlertLevel=0} updateSceneTimer();}
-function updateSceneTimer(){const start=localStorage.getItem('timestamp_scene_start'),stop=localStorage.getItem('timestamp_scene_stop'),box=$('sceneTimer');if(!start){box.className='scene-timer';return} const startMs=Date.parse(start),endMs=stop?Date.parse(stop):Date.now(); if(!Number.isFinite(startMs)){box.className='scene-timer';return} const secs=Math.max(0,Math.floor((endMs-startMs)/1000)),h=String(Math.floor(secs/3600)).padStart(2,'0'),m=String(Math.floor((secs%3600)/60)).padStart(2,'0'),s=String(secs%60).padStart(2,'0');$('sceneTime').textContent=`${h}:${m}:${s}`;box.className='scene-timer active'+(secs>=1200?' bad':secs>=600?' warn':'');$('sessionLine').textContent=getSessionId()?`Session ${getSessionId()}`:'Started at With Patient · stops at Handover or Clear'; if(!stop){const level=Math.floor(secs/600);if(level>0&&level>state.sceneAlertLevel){state.sceneAlertLevel=level;vibrate([120,80,120]);setStatus(`${level*10} min patient contact time`,'warn');}}}
-function enqueuePending(p){const q=getPendingQueue();if(!q.some(x=>x.local_id===p.local_id)){q.push(p);setPendingQueue(q)}} function saveHistory(p){const h=getHistory();h.unshift(p);setHistory(h)} function markHistorySent(id){setHistory(getHistory().map(x=>x.local_id===id?{...x,sync_status:'sent'}:x))}
-async function syncPending(){if(!navigator.onLine){updateSyncStatus();return} let q=getPendingQueue(); if(!q.length){updateSyncStatus();return} const still=[]; for(const item of q){try{await fetch(getEndpoint(),{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({...item,sync_status:'sent'})});markHistorySent(item.local_id)}catch(e){still.push(item)}} setPendingQueue(still);renderHistory();updateSyncStatus();setStatus(still.length?`${still.length} pending sync. Will retry.`:'All synced.',still.length?'warn':'ok');}
-async function pullActiveEpisode(show=false){if(!navigator.onLine)return; const org=getOrganisation(),user=getUserName(); if(!org||!user)return; try{const res=await fetch(getEndpoint()+`?action=activeEpisode&organisation=${encodeURIComponent(org)}&user=${encodeURIComponent(user)}`,{method:'GET',cache:'no-store'});const data=await res.json();applyActiveEpisode(data);state.lastPullAt=Date.now();if(show)setStatus('Shared episode state loaded.','ok');}catch(e){if(show)setStatus('Could not load shared state: '+e.message,'warn')}}
-function applyActiveEpisode(data){if(!data||data.status==='none'){renderAll();return} if(data.session_id)setSessionId(data.session_id); if(data.timer_start)localStorage.setItem('timestamp_scene_start',data.timer_start);else localStorage.removeItem('timestamp_scene_start'); if(data.timer_stop)localStorage.setItem('timestamp_scene_stop',data.timer_stop);else localStorage.removeItem('timestamp_scene_stop'); const done=getCompletions(),tl=data.timeline||{};Object.keys(tl).forEach(type=>{const ev=tl[type]||{}; if(!['VOICE_NOTE','MANUAL_NOTE','TEST','CLEAR','JOB_COMPLETE','MARK'].includes(type))done[type]={time:ev.event_time_local||'',note:ev.note||'',category:ev.event_category||'',event_time:ev.event_time||'',source:ev.source||'',app_version:ev.app_version||''};});setCompletions(done);renderAll();const dbg=$('activeEpisodeDebug');if(dbg)dbg.textContent=`Shared: ${data.status||'none'} · ${data.session_id||'no session'} · last ${data.last_event_type||'none'}`;}
-function updateSyncStatus(){const el=$('syncStatus'),count=getPendingQueue().length,pulled=state.lastPullAt?` · shared ${Math.round((Date.now()-state.lastPullAt)/1000)}s ago`:''; if(!navigator.onLine){el.className='sync-status bad';el.textContent=count?`Offline · ${count} pending`:'Offline'} else if(count){el.className='sync-status warn';el.textContent=`Online · ${count} pending sync${pulled}`} else{el.className='sync-status ok';el.textContent=`Online · all synced${pulled}`}}
-function vibrate(p){if('vibrate'in navigator)navigator.vibrate(p)} function renderTimeline(){const done=getCompletions(),top=$('timelineGrid'),later=$('laterTimelineGrid');top.innerHTML='';later.innerHTML='';const topTypes=['MOBILE','LANDED','ARRIVE_SCENE','WITH_PATIENT'];TIMELINE_EVENTS.forEach(ev=>{const b=document.createElement('button');b.className='timeline-btn'+(done[ev.type]?' done':'');b.innerHTML=`<span class="label">${escapeHtml(ev.label)}</span><span class="time">${done[ev.type]?.time||''}</span>`;b.addEventListener('click',()=>postTimestamp(buildPayload({eventType:ev.type,note:ev.label,category:'timeline'})));if(topTypes.includes(ev.type))top.appendChild(b);else{if(ev.type==='READY_TO_LEAVE_SCENE')b.style.gridColumn='1 / -1';later.appendChild(b)}})}
-function renderCounts(){const done=getCompletions();$('interventionCount').textContent=(Object.values(done).filter(x=>x.category==='intervention').length)+' logged';$('drugCount').textContent=(Object.values(done).filter(x=>x.category==='drug').length)+' logged';} function renderHistory(){const h=getHistory(),el=$('history'); if(!h.length){el.innerHTML='<div class="small">No entries logged from this device yet.</div>';return} el.innerHTML=h.map(item=>`<div class="history-item"><strong>${escapeHtml(item.event_time_local||'')}</strong> ${escapeHtml(item.note||item.event_type||'')}<br><span class="small">${escapeHtml(item.event_category||'')} · ${escapeHtml(item.organisation||'')} / ${escapeHtml(item.user||'')} · ${escapeHtml(item.sync_status||'sent')}</span></div>`).join('');} function renderAll(){renderTimeline();renderCounts();renderHistory();updateSceneTimer();}
-function openModal(type){state.modalType=type;const items=type==='intervention'?INTERVENTIONS:DRUGS;$('modalTitle').textContent=type==='intervention'?'Intervention':'Drug';$('otherLabel').textContent=type==='intervention'?'Other intervention':'Other drug';$('otherText').value='';$('otherPanel').classList.remove('active');const done=getCompletions(),list=$('modalList');list.innerHTML='';items.forEach(item=>{const b=document.createElement('button');b.className=done[item.type]?'done':'';b.innerHTML=`${escapeHtml(item.label)}${done[item.type]?`<span class="time">✓ ${escapeHtml(done[item.type].time)}</span>`:''}`;b.addEventListener('click',()=>{closeModal();postTimestamp(buildPayload({eventType:item.type,note:item.label,category:type}))});list.appendChild(b)});const other=document.createElement('button');other.textContent='Other...';other.addEventListener('click',()=>{$('otherPanel').classList.add('active');$('otherText').focus()});list.appendChild(other);$('modalBackdrop').style.display='flex';}
-function closeModal(){$('modalBackdrop').style.display='none';state.modalType=null;$('otherPanel').classList.remove('active')} function slugifyEventType(p,t){const c=String(t||'').trim().toUpperCase().replace(/[^A-Z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60);return `${p}_OTHER_${c||'UNSPECIFIED'}`} function sendOtherItem(){const text=$('otherText').value.trim();if(!text){setStatus('Enter the other item first.','warn');return} const type=state.modalType,prefix=type==='drug'?'DRUG':'INTERVENTION';closeModal();postTimestamp(buildPayload({eventType:slugifyEventType(prefix,text),note:text,category:type}));}
-function setupSpeechRecognition(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){$('voiceButton').disabled=true;$('voiceButton').textContent='🎙️ Voice not supported';return} const r=new SR();r.lang='en-GB';r.interimResults=false;r.maxAlternatives=1;r.continuous=false;r.onstart=()=>{$('voiceButton').classList.add('listening');$('voiceButton').textContent='🔴 LISTENING...';setStatus('Listening...')};r.onerror=e=>{$('voiceButton').classList.remove('listening');$('voiceButton').textContent='🎙️ VOICE NOTE';setStatus('Voice error: '+e.error,'bad')};r.onend=()=>{$('voiceButton').classList.remove('listening');$('voiceButton').textContent='🎙️ VOICE NOTE'};r.onresult=e=>{const text=e.results?.[0]?.[0]?.transcript||'';if(text.trim())postTimestamp(buildPayload({eventType:'VOICE_NOTE',note:text.trim(),category:'voice'}),false)};state.recognition=r;}
-function startVoice(){try{state.recognition?.start()}catch(e){setStatus('Could not start voice: '+e.message,'bad')}} function showManual(s){$('manualCard').style.display=s?'block':'none';if(s)$('manualNote').focus()} async function clearEpisode(){if(!confirm('End patient episode?
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#071625">
+<title>Timestamp Logger</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--bg:#071625;--panel:#10263f;--panel2:#1b426d;--text:#f3f7fb;--muted:#b8c7d6;--accent:#33d17a;--warn:#ffcc00;--danger:#8a3333;--border:rgba(255,255,255,.16)}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text);background:radial-gradient(circle at top,#153c66 0,#071625 42%,#04101c 100%);padding:env(safe-area-inset-top) 14px calc(116px + env(safe-area-inset-bottom)) 14px}
+main{width:min(720px,100%);margin:0 auto;padding:14px 0 20px}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px}
+h1{font-size:1.35rem;margin:0 0 2px;line-height:1.1}
+.sub,.small{color:var(--muted);font-size:.84rem;line-height:1.35}
+.clock{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;min-width:96px}
+.clock strong{display:block;color:var(--text);font-size:1.15rem}
+.card{background:rgba(16,38,63,.94);border:1px solid var(--border);border-radius:18px;padding:13px;margin-bottom:12px;box-shadow:0 12px 32px rgba(0,0,0,.28)}
+.status,.sync-status{border-radius:14px;padding:10px 12px;margin-bottom:10px;background:rgba(255,255,255,.08);color:var(--muted);text-align:center;font-size:.9rem;font-weight:700}
+.status.ok,.sync-status.ok{color:#d8ffe8;background:rgba(51,209,122,.16)}
+.status.warn,.sync-status.warn{color:#fff4c2;background:rgba(255,204,0,.16)}
+.status.bad,.sync-status.bad{color:#ffe1e1;background:rgba(255,92,92,.16)}
+.output-button{display:block;text-align:center;margin:0 0 8px;padding:10px 12px;border-radius:14px;background:rgba(51,209,122,.16);color:#d8ffe8;text-decoration:none;font-weight:900;box-shadow:inset 0 0 0 1px rgba(51,209,122,.28)}
+.scene-timer{display:none;border-radius:18px;padding:13px;margin-bottom:10px;text-align:center;background:rgba(51,209,122,.16);box-shadow:inset 0 0 0 1px rgba(51,209,122,.28)}
+.scene-timer.active{display:block}
+.scene-timer.warn{background:rgba(255,204,0,.18);box-shadow:inset 0 0 0 1px rgba(255,204,0,.32)}
+.scene-timer.bad{background:rgba(255,92,92,.18);box-shadow:inset 0 0 0 1px rgba(255,92,92,.32)}
+.scene-label{font-size:.78rem;color:var(--muted);font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.scene-time{font-size:2rem;font-weight:950;font-variant-numeric:tabular-nums;line-height:1.05;margin-top:3px}
+button{appearance:none;border:0;border-radius:15px;padding:12px;min-height:56px;color:var(--text);background:var(--panel2);font-size:.98rem;font-weight:850;box-shadow:inset 0 0 0 1px var(--border);touch-action:manipulation}
+button:active{transform:translateY(1px)}
+.timeline-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.timeline-btn{text-align:left;position:relative;min-height:62px}
+.timeline-btn .label{display:block;line-height:1.1}
+.timeline-btn .time{display:block;color:var(--muted);font-size:.83rem;margin-top:5px;font-variant-numeric:tabular-nums}
+.timeline-btn.done{background:#244635;color:#e8fff0}
+.timeline-btn.done::after{content:"✓";position:absolute;top:10px;right:12px;color:var(--accent);font-size:1.2rem}
+.timeline-btn.done .time{color:#d8ffe8}
+.action-row,.job-row,.row{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}
+.danger{background:var(--danger)!important}
+.secondary{background:#1b426d!important}
+.count{display:block;color:var(--muted);font-size:.82rem;font-weight:700;margin-top:3px}
+details summary{cursor:pointer;color:var(--muted);font-weight:850}
+label{display:block;color:var(--muted);font-size:.82rem;margin-bottom:6px}
+input,textarea{width:100%;background:#071625;color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:1rem}
+textarea{min-height:78px;resize:vertical}
+.manual-card{display:none}
+.history-item{border-top:1px solid var(--border);padding:9px 0;color:var(--muted);font-size:.9rem}
+.history-item:first-child{border-top:0}
+.history-item strong{color:var(--text);font-variant-numeric:tabular-nums}
+.bottom-voice{position:fixed;left:0;right:0;bottom:0;z-index:50;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(180deg,rgba(7,22,37,0),rgba(7,22,37,.96) 18%,#071625 100%)}
+.bottom-voice-inner{width:min(720px,100%);margin:0 auto}
+.voice-button{width:100%;min-height:84px;border-radius:22px;font-size:1.28rem;letter-spacing:.02em;background:linear-gradient(135deg,#1ca55c,#11854b);box-shadow:0 10px 26px rgba(0,0,0,.35),inset 0 0 0 1px rgba(255,255,255,.22)}
+.voice-button.listening{background:linear-gradient(135deg,#c0392b,#8e2016)}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:70;display:none;align-items:flex-end;justify-content:center}
+.modal{width:min(720px,100%);max-height:78vh;overflow:auto;background:#0b1f3a;border:1px solid var(--border);border-radius:24px 24px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -16px 40px rgba(0,0,0,.5)}
+.modal-header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.modal-header h2{font-size:1.15rem;margin:0}
+.modal-close{min-height:44px;padding:8px 14px;background:var(--danger)}
+.list-grid{display:grid;grid-template-columns:1fr;gap:8px}
+.list-grid button{text-align:left;min-height:54px}
+.list-grid button.done{background:#244635;color:#e8fff0}
+.list-grid button .time{display:block;color:var(--muted);font-size:.82rem;margin-top:3px}
+.other-panel{display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.other-panel.active{display:block}
+@media(min-width:480px){.timeline-grid{grid-template-columns:1fr 1fr 1fr}.list-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.1.1</div></div>
+  <div class="clock"><strong id="clockTime">--:--:--</strong><span id="clockDate">--</span></div>
+</header>
 
-This will clear the local timeline.
+<section class="card">
+  <div id="sceneTimer" class="scene-timer">
+    <div class="scene-label">Patient contact time</div>
+    <div id="sceneTime" class="scene-time">00:00:00</div>
+    <div class="small" id="sessionLine">Shared episode state</div>
+  </div>
 
-Output: tiny.cc/MagpasTimestamp'))return;const p=buildPayload({eventType:'CLEAR',note:'Patient episode cleared',category:'job'});await postTimestamp(p,false);['timestamp_completions','timestamp_history','timestamp_scene_start','timestamp_scene_stop','timestamp_session_id'].forEach(k=>localStorage.removeItem(k));renderAll();setStatus('Patient episode cleared. Output: tiny.cc/MagpasTimestamp','ok');await pullActiveEpisode(false);}
-function escapeHtml(str){return String(str).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;')} async function registerServiceWorker(){if('serviceWorker'in navigator)try{await navigator.serviceWorker.register('service-worker.js')}catch(e){}}
-function bindEvents(){$('saveSettingsButton').addEventListener('click',saveSettings);$('pullStateButton').addEventListener('click',()=>pullActiveEpisode(true));$('testButton').addEventListener('click',()=>{saveSettings();postTimestamp(buildPayload({eventType:'TEST',note:'Test timestamp from PWA',category:'test'}),false)});$('voiceButton').addEventListener('click',startVoice);$('manualButton').addEventListener('click',()=>showManual(true));$('cancelManualButton').addEventListener('click',()=>showManual(false));$('sendManualButton').addEventListener('click',()=>{const note=$('manualNote').value.trim();if(!note)return;postTimestamp(buildPayload({eventType:'MANUAL_NOTE',note,category:'manual'}),false);$('manualNote').value='';showManual(false)});$('interventionButton').addEventListener('click',()=>openModal('intervention'));$('drugButton').addEventListener('click',()=>openModal('drug'));$('modalClose').addEventListener('click',closeModal);$('modalBackdrop').addEventListener('click',e=>{if(e.target===$('modalBackdrop'))closeModal()});$('otherSendButton').addEventListener('click',sendOtherItem);$('otherDictateButton').addEventListener('click',()=>setStatus('Use voice note or type Other item.','warn'));$('clearButton').addEventListener('click',clearEpisode);$('markButton').addEventListener('click',()=>{const count=getHistory().filter(x=>x.event_type==='MARK').length+1;postTimestamp(buildPayload({eventType:'MARK',note:`Mark ${count}`,category:'generic'}),false)});}
-function init(){updateClock();setInterval(updateClock,1000);loadSettings();renderAll();setupSpeechRecognition();bindEvents();registerServiceWorker();updateSyncStatus();syncPending();pullActiveEpisode(false);window.addEventListener('online',()=>{updateSyncStatus();syncPending();pullActiveEpisode(false)});window.addEventListener('offline',updateSyncStatus);setInterval(syncPending,30000);setInterval(()=>pullActiveEpisode(false),30000);if(!getUserName())setStatus('Add user/callsign in User setup before first use.','warn')} init();
-</script></body></html>
+  <div id="status" class="status">Ready.</div>
+  <a class="output-button" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">📋 Open Output</a>
+  <div class="small" style="text-align:center;margin:-2px 0 8px;">Default Magpas output link. Other organisations need their own short link.</div>
+  <div id="syncStatus" class="sync-status">Sync status loading...</div>
+
+  <div class="timeline-grid" id="topTimelineGrid"></div>
+
+  <div class="action-row">
+    <button id="interventionButton">Intervention <span class="count" id="interventionCount">0 logged</span></button>
+    <button id="drugButton">Drug <span class="count" id="drugCount">0 logged</span></button>
+  </div>
+
+  <div class="timeline-grid" id="laterTimelineGrid" style="margin-top:10px;"></div>
+
+  <div class="job-row">
+    <button class="secondary" id="manualButton">✍️ Manual note</button>
+    <button class="danger" id="clearButton">Clear</button>
+  </div>
+</section>
+
+<section class="card manual-card" id="manualCard">
+  <label for="manualNote">Manual note</label>
+  <textarea id="manualNote" placeholder="e.g. Tourniquet applied left thigh"></textarea>
+  <div class="row"><button class="secondary" id="sendManualButton">Send note</button><button class="danger" id="cancelManualButton">Cancel</button></div>
+</section>
+
+<section class="card">
+  <details id="setupDetails">
+    <summary>User setup</summary>
+    <div class="row">
+      <div><label for="organisation">Organisation</label><input id="organisation" placeholder="e.g. Magpas"></div>
+      <div><label for="userName">User / callsign</label><input id="userName" placeholder="e.g. Nick"></div>
+    </div>
+    <div class="row"><button id="saveSettingsButton">Save setup</button><button id="pullStateButton">Pull shared state</button></div>
+    <div class="small" id="activeEpisodeDebug" style="margin-top:8px;"></div>
+  </details>
+</section>
+
+<section class="card"><details open><summary>Local timeline</summary><div id="history"></div></details></section>
+</main>
+
+<div class="bottom-voice"><div class="bottom-voice-inner"><button class="voice-button" id="voiceButton">🎙️ VOICE NOTE</button></div></div>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <div class="modal-header"><h2 id="modalTitle">Select</h2><button class="modal-close" id="modalClose">Close</button></div>
+    <div class="list-grid" id="modalList"></div>
+    <div class="other-panel" id="otherPanel">
+      <label id="otherLabel" for="otherText">Other</label>
+      <textarea id="otherText" placeholder="Type other item, e.g. Magnesium"></textarea>
+      <div class="row"><button class="secondary" id="otherDictateButton">🎙️ Dictate</button><button class="secondary" id="otherSendButton">Send other</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const APP_VERSION = "1.1.1";
+const DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
+const DEFAULT_ORGANISATION = "Magpas";
+const DEFAULT_USER = "";
+const APP_SOURCE = "PWA";
+
+const TOP_TIMELINE_EVENTS = [
+  { label: "Mobile", type: "MOBILE" },
+  { label: "Landed", type: "LANDED" },
+  { label: "Arrive Scene", type: "ARRIVE_SCENE" },
+  { label: "With Patient", type: "WITH_PATIENT" }
+];
+
+const LATER_TIMELINE_EVENTS = [
+  { label: "Ready to Leave Scene", type: "READY_TO_LEAVE_SCENE", full: true },
+  { label: "Depart Scene", type: "DEPART_SCENE" },
+  { label: "Hospital Arrival", type: "HOSPITAL_ARRIVAL" },
+  { label: "Handover Complete", type: "HANDOVER_COMPLETE" }
+];
+
+const INTERVENTIONS = [
+  {label:"Arterial Line",type:"ARTERIAL_LINE"},
+  {label:"ETT",type:"ETT"},
+  {label:"FAST",type:"FAST"},
+  {label:"FIB",type:"FIB"},
+  {label:"Haemostatic Dressing",type:"HAEMOSTATIC_DRESSING"},
+  {label:"IO Access",type:"IO_ACCESS"},
+  {label:"IV Access",type:"IV_ACCESS"},
+  {label:"Pelvic Binder",type:"PELVIC_BINDER"},
+  {label:"PHEA",type:"PHEA"},
+  {label:"ROSC",type:"ROSC"},
+  {label:"Thoracostomy",type:"THORACOSTOMY"},
+  {label:"Tourniquet",type:"TOURNIQUET"}
+];
+
+const DRUGS = [
+  {label:"Adrenaline",type:"ADRENALINE"},
+  {label:"Blood",type:"BLOOD"},
+  {label:"Calcium",type:"CALCIUM"},
+  {label:"Fentanyl",type:"FENTANYL"},
+  {label:"Ketamine",type:"KETAMINE"},
+  {label:"Midazolam",type:"MIDAZOLAM"},
+  {label:"Rocuronium",type:"ROCURONIUM"},
+  {label:"TXA",type:"TXA"}
+];
+
+const $ = id => document.getElementById(id);
+const state = { recognition:null, modalType:null, sceneAlertLevel:0, lastPullAt:0 };
+
+function formatTime(date = new Date()) { return new Intl.DateTimeFormat("en-GB", {hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false}).format(date); }
+function formatDate(date = new Date()) { return new Intl.DateTimeFormat("en-GB", {weekday:"short", day:"2-digit", month:"short"}).format(date); }
+function updateClock() { $("clockTime").textContent = formatTime(); $("clockDate").textContent = formatDate(); updateSceneTimer(); updateSyncStatus(); }
+function setStatus(message, kind = "") { const el = $("status"); el.className = "status" + (kind ? " " + kind : ""); el.textContent = message; }
+function getEndpoint() { return DEFAULT_ENDPOINT_URL.trim(); }
+function getOrganisation() { return (localStorage.getItem("timestamp_organisation") || DEFAULT_ORGANISATION).trim(); }
+function getUserName() { return (localStorage.getItem("timestamp_user") || DEFAULT_USER).trim(); }
+function getSessionId() { return localStorage.getItem("timestamp_session_id") || ""; }
+function setSessionId(id) { if (id) localStorage.setItem("timestamp_session_id", id); }
+function getCompletions() { return JSON.parse(localStorage.getItem("timestamp_completions") || "{}"); }
+function setCompletions(obj) { localStorage.setItem("timestamp_completions", JSON.stringify(obj)); }
+function getHistory() { return JSON.parse(localStorage.getItem("timestamp_history") || "[]"); }
+function setHistory(arr) { localStorage.setItem("timestamp_history", JSON.stringify(arr.slice(0, 100))); }
+function getPendingQueue() { return JSON.parse(localStorage.getItem("timestamp_pending_queue") || "[]"); }
+function setPendingQueue(queue) { localStorage.setItem("timestamp_pending_queue", JSON.stringify(queue)); }
+function makeLocalId() { return "local-" + Date.now() + "-" + Math.random().toString(36).slice(2,10); }
+
+function loadSettings() {
+  $("organisation").value = getOrganisation();
+  $("userName").value = getUserName();
+  if (!$("userName").value.trim()) $("setupDetails").open = true;
+}
+function saveSettings() {
+  const org = $("organisation").value.trim() || DEFAULT_ORGANISATION;
+  const user = $("userName").value.trim();
+  localStorage.setItem("timestamp_organisation", org);
+  localStorage.setItem("timestamp_user", user);
+  $("organisation").value = org;
+  $("userName").value = user;
+  setStatus("User setup saved.", "ok");
+  pullActiveEpisode(true);
+}
+
+function buildPayload({eventType, note, category}) {
+  const d = new Date();
+  return {
+    event_time: d.toISOString(),
+    event_time_local: formatTime(d),
+    event_date_local: formatDate(d),
+    event_type: eventType || "VOICE_NOTE",
+    event_category: category || "",
+    note: note || "",
+    prompt: `${formatTime(d)} - ${note || eventType || ""}`,
+    user: getUserName(),
+    organisation: getOrganisation(),
+    source: APP_SOURCE,
+    app_version: APP_VERSION,
+    user_agent: navigator.userAgent,
+    local_id: makeLocalId(),
+    session_id: getSessionId(),
+    sync_status: "pending"
+  };
+}
+
+async function postTimestamp(payload, markComplete = true) {
+  if (!payload.user) { setStatus("Add user/callsign in User setup before logging.", "warn"); $("setupDetails").open = true; return false; }
+  saveHistory(payload);
+  enqueuePending(payload);
+  if (markComplete && payload.event_type && !["VOICE_NOTE","MANUAL_NOTE","TEST","CLEAR","JOB_COMPLETE"].includes(payload.event_type)) {
+    const done = getCompletions();
+    done[payload.event_type] = { time: payload.event_time_local, note: payload.note, category: payload.event_category, event_time: payload.event_time, source: payload.source, app_version: payload.app_version };
+    setCompletions(done);
+  }
+  handleTimerEvent(payload);
+  renderAll();
+  updateSyncStatus();
+  setStatus(`Saved locally: ${payload.event_time_local} ${payload.note || payload.event_type}`, "warn");
+  vibrate([40]);
+  await syncPending();
+  await pullActiveEpisode(false);
+  return true;
+}
+
+function handleTimerEvent(payload) {
+  if (payload.event_type === "WITH_PATIENT") { localStorage.setItem("timestamp_scene_start", payload.event_time); localStorage.removeItem("timestamp_scene_stop"); state.sceneAlertLevel = 0; }
+  if (payload.event_type === "HANDOVER_COMPLETE") localStorage.setItem("timestamp_scene_stop", payload.event_time);
+  if (payload.event_type === "CLEAR") { localStorage.removeItem("timestamp_scene_start"); localStorage.removeItem("timestamp_scene_stop"); localStorage.removeItem("timestamp_session_id"); state.sceneAlertLevel = 0; }
+  updateSceneTimer();
+}
+
+function updateSceneTimer() {
+  const start = localStorage.getItem("timestamp_scene_start");
+  const stop = localStorage.getItem("timestamp_scene_stop");
+  const box = $("sceneTimer");
+  if (!box) return;
+  if (!start) { box.className = "scene-timer"; return; }
+  const startMs = Date.parse(start);
+  const endMs = stop ? Date.parse(stop) : Date.now();
+  if (!Number.isFinite(startMs)) { box.className = "scene-timer"; return; }
+  const secs = Math.max(0, Math.floor((endMs - startMs) / 1000));
+  const h = String(Math.floor(secs / 3600)).padStart(2, "0");
+  const m = String(Math.floor((secs % 3600) / 60)).padStart(2, "0");
+  const s = String(secs % 60).padStart(2, "0");
+  $("sceneTime").textContent = `${h}:${m}:${s}`;
+  box.className = "scene-timer active" + (secs >= 1200 ? " bad" : secs >= 600 ? " warn" : "");
+  const session = getSessionId();
+  $("sessionLine").textContent = session ? `Session ${session}` : "Started at With Patient · stops at Handover or Clear";
+  if (!stop) {
+    const level = Math.floor(secs / 600);
+    if (level > 0 && level > state.sceneAlertLevel) { state.sceneAlertLevel = level; vibrate([120,80,120]); setStatus(`${level * 10} min patient contact time`, "warn"); }
+  }
+}
+
+function enqueuePending(payload) { const q = getPendingQueue(); if (!q.some(x => x.local_id === payload.local_id)) { q.push(payload); setPendingQueue(q); } }
+function saveHistory(payload) { const h = getHistory(); h.unshift(payload); setHistory(h); }
+function markHistorySent(localId) { setHistory(getHistory().map(x => x.local_id === localId ? {...x, sync_status:"sent"} : x)); }
+
+async function syncPending() {
+  if (!navigator.onLine) { updateSyncStatus(); return; }
+  const q = getPendingQueue();
+  if (!q.length) { updateSyncStatus(); return; }
+  const still = [];
+  for (const item of q) {
+    try {
+      await fetch(getEndpoint(), { method:"POST", mode:"no-cors", headers:{"Content-Type":"application/json"}, body:JSON.stringify({...item, sync_status:"sent"}) });
+      markHistorySent(item.local_id);
+    } catch (err) { still.push(item); }
+  }
+  setPendingQueue(still);
+  renderHistory();
+  updateSyncStatus();
+  setStatus(still.length ? `${still.length} pending sync. Will retry.` : "All synced.", still.length ? "warn" : "ok");
+}
+
+async function pullActiveEpisode(showStatus = false) {
+  if (!navigator.onLine) return;
+  const org = getOrganisation();
+  const user = getUserName();
+  if (!org || !user) return;
+  const url = getEndpoint() + `?action=activeEpisode&organisation=${encodeURIComponent(org)}&user=${encodeURIComponent(user)}`;
+  try {
+    const res = await fetch(url, { method:"GET", cache:"no-store" });
+    const data = await res.json();
+    applyActiveEpisode(data);
+    state.lastPullAt = Date.now();
+    if (showStatus) setStatus("Shared episode state loaded.", "ok");
+  } catch (err) {
+    if (showStatus) setStatus("Could not load shared state: " + err.message, "warn");
+  }
+}
+
+function applyActiveEpisode(data) {
+  if (!data || data.status === "none") { renderAll(); return; }
+  if (data.session_id) setSessionId(data.session_id);
+  if (data.timer_start) localStorage.setItem("timestamp_scene_start", data.timer_start); else localStorage.removeItem("timestamp_scene_start");
+  if (data.timer_stop) localStorage.setItem("timestamp_scene_stop", data.timer_stop); else localStorage.removeItem("timestamp_scene_stop");
+  const done = getCompletions();
+  const timeline = data.timeline || {};
+  Object.keys(timeline).forEach(type => {
+    const ev = timeline[type] || {};
+    if (!["VOICE_NOTE","MANUAL_NOTE","TEST","CLEAR","JOB_COMPLETE"].includes(type)) {
+      done[type] = { time: ev.event_time_local || "", note: ev.note || "", category: ev.event_category || "", event_time: ev.event_time || "", source: ev.source || "", app_version: ev.app_version || "" };
+    }
+  });
+  setCompletions(done);
+  renderAll();
+  const dbg = $("activeEpisodeDebug");
+  if (dbg) dbg.textContent = `Shared: ${data.status || "none"} · ${data.session_id || "no session"} · last ${data.last_event_type || "none"}`;
+}
+
+function updateSyncStatus() {
+  const el = $("syncStatus"); if (!el) return;
+  const count = getPendingQueue().length;
+  const pulled = state.lastPullAt ? ` · shared ${Math.round((Date.now() - state.lastPullAt) / 1000)}s ago` : "";
+  if (!navigator.onLine) { el.className = "sync-status bad"; el.textContent = count ? `Offline · ${count} pending` : "Offline"; }
+  else if (count) { el.className = "sync-status warn"; el.textContent = `Online · ${count} pending sync${pulled}`; }
+  else { el.className = "sync-status ok"; el.textContent = `Online · all synced${pulled}`; }
+}
+
+function vibrate(pattern) { if ("vibrate" in navigator) navigator.vibrate(pattern); }
+
+function renderTimeline() {
+  renderTimelineGroup($("topTimelineGrid"), TOP_TIMELINE_EVENTS);
+  renderTimelineGroup($("laterTimelineGrid"), LATER_TIMELINE_EVENTS);
+}
+function renderTimelineGroup(grid, events) {
+  const done = getCompletions();
+  grid.innerHTML = "";
+  events.forEach(ev => {
+    const btn = document.createElement("button");
+    btn.className = "timeline-btn" + (done[ev.type] ? " done" : "");
+    if (ev.full) btn.style.gridColumn = "1 / -1";
+    btn.innerHTML = `<span class="label">${escapeHtml(ev.label)}</span><span class="time">${done[ev.type]?.time || ""}</span>`;
+    btn.addEventListener("click", () => postTimestamp(buildPayload({eventType:ev.type, note:ev.label, category:"timeline"})));
+    grid.appendChild(btn);
+  });
+}
+
+function renderCounts() {
+  const done = getCompletions();
+  const interventionCount = Object.values(done).filter(x => x.category === "intervention").length;
+  const drugCount = Object.values(done).filter(x => x.category === "drug").length;
+  $("interventionCount").textContent = interventionCount === 1 ? "1 logged" : `${interventionCount} logged`;
+  $("drugCount").textContent = drugCount === 1 ? "1 logged" : `${drugCount} logged`;
+}
+
+function renderHistory() {
+  const h = getHistory();
+  const el = $("history");
+  if (!h.length) { el.innerHTML = '<div class="small">No entries logged from this device yet.</div>'; return; }
+  el.innerHTML = h.map(item => `<div class="history-item"><strong>${escapeHtml(item.event_time_local || "")}</strong> ${escapeHtml(item.note || item.event_type || "")}<br><span class="small">${escapeHtml(item.event_category || "")} · ${escapeHtml(item.organisation || "")} / ${escapeHtml(item.user || "")} · ${escapeHtml(item.sync_status || "sent")}</span></div>`).join("");
+}
+
+function renderAll() { renderTimeline(); renderCounts(); renderHistory(); updateSceneTimer(); }
+
+function openModal(type) {
+  state.modalType = type;
+  const items = type === "intervention" ? INTERVENTIONS : DRUGS;
+  $("modalTitle").textContent = type === "intervention" ? "Intervention" : "Drug";
+  $("otherLabel").textContent = type === "intervention" ? "Other intervention" : "Other drug";
+  $("otherText").value = "";
+  $("otherPanel").classList.remove("active");
+  const done = getCompletions();
+  const list = $("modalList");
+  list.innerHTML = "";
+  items.forEach(item => {
+    const btn = document.createElement("button");
+    btn.className = done[item.type] ? "done" : "";
+    btn.innerHTML = `${escapeHtml(item.label)}${done[item.type] ? `<span class="time">✓ ${escapeHtml(done[item.type].time)}</span>` : ""}`;
+    btn.addEventListener("click", () => { closeModal(); postTimestamp(buildPayload({eventType:item.type, note:item.label, category:type})); });
+    list.appendChild(btn);
+  });
+  const other = document.createElement("button");
+  other.textContent = "Other...";
+  other.addEventListener("click", () => { $("otherPanel").classList.add("active"); $("otherText").focus(); });
+  list.appendChild(other);
+  $("modalBackdrop").style.display = "flex";
+}
+function closeModal() { $("modalBackdrop").style.display = "none"; state.modalType = null; $("otherPanel").classList.remove("active"); }
+function slugifyEventType(prefix, text) { const cleaned = String(text || "").trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 60); return `${prefix}_OTHER_${cleaned || "UNSPECIFIED"}`; }
+function sendOtherItem() {
+  const text = $("otherText").value.trim();
+  if (!text) { setStatus("Enter the other item first.", "warn"); return; }
+  const type = state.modalType;
+  const prefix = type === "drug" ? "DRUG" : "INTERVENTION";
+  closeModal();
+  postTimestamp(buildPayload({eventType:slugifyEventType(prefix, text), note:text, category:type}));
+}
+function dictateOtherItem() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { setStatus("Dictation not supported. Type the item.", "warn"); return; }
+  const r = new SR();
+  r.lang = "en-GB"; r.interimResults = false; r.maxAlternatives = 1;
+  r.onstart = () => setStatus("Listening for other item...");
+  r.onerror = e => setStatus("Other item dictation error: " + e.error, "bad");
+  r.onresult = e => { const text = e.results?.[0]?.[0]?.transcript || ""; if (text.trim()) { $("otherText").value = text.trim(); setStatus("Dictation captured. Tap Send other.", "ok"); } else setStatus("No speech detected.", "warn"); };
+  try { r.start(); } catch(err) { setStatus("Could not start dictation: " + err.message, "bad"); }
+}
+
+function setupSpeechRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { $("voiceButton").disabled = true; $("voiceButton").textContent = "🎙️ Voice not supported"; return; }
+  const r = new SR();
+  r.lang = "en-GB"; r.interimResults = false; r.maxAlternatives = 1; r.continuous = false;
+  r.onstart = () => { $("voiceButton").classList.add("listening"); $("voiceButton").textContent = "🔴 LISTENING..."; setStatus("Listening..."); };
+  r.onerror = e => { $("voiceButton").classList.remove("listening"); $("voiceButton").textContent = "🎙️ VOICE NOTE"; setStatus("Voice error: " + e.error, "bad"); };
+  r.onend = () => { $("voiceButton").classList.remove("listening"); $("voiceButton").textContent = "🎙️ VOICE NOTE"; };
+  r.onresult = e => { const text = e.results?.[0]?.[0]?.transcript || ""; if (text.trim()) postTimestamp(buildPayload({eventType:"VOICE_NOTE", note:text.trim(), category:"voice"}), false); else setStatus("No speech detected.", "warn"); };
+  state.recognition = r;
+}
+function startVoice() { if (!state.recognition) { setStatus("Voice unavailable. Use Manual note.", "warn"); return; } try { state.recognition.start(); } catch(err) { setStatus("Could not start voice: " + err.message, "bad"); } }
+function showManual(show) { $("manualCard").style.display = show ? "block" : "none"; if (show) $("manualNote").focus(); }
+
+async function clearEpisode() {
+  const ok = confirm("End patient episode?\n\nThis will clear the local timeline.\n\nOutput: tiny.cc/MagpasTimestamp");
+  if (!ok) return;
+  const payload = buildPayload({eventType:"CLEAR", note:"Patient episode cleared", category:"job"});
+  await postTimestamp(payload, false);
+  localStorage.removeItem("timestamp_completions");
+  localStorage.removeItem("timestamp_history");
+  localStorage.removeItem("timestamp_scene_start");
+  localStorage.removeItem("timestamp_scene_stop");
+  localStorage.removeItem("timestamp_session_id");
+  renderAll();
+  setStatus("Patient episode cleared. Output: tiny.cc/MagpasTimestamp", "ok");
+  await pullActiveEpisode(false);
+}
+
+function escapeHtml(str) { return String(str).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;"); }
+async function registerServiceWorker() { if ("serviceWorker" in navigator) { try { await navigator.serviceWorker.register("service-worker.js"); } catch(err) { console.warn("Service worker registration failed", err); } } }
+
+function bindEvents() {
+  $("saveSettingsButton").addEventListener("click", saveSettings);
+  $("pullStateButton").addEventListener("click", () => pullActiveEpisode(true));
+  $("voiceButton").addEventListener("click", startVoice);
+  $("manualButton").addEventListener("click", () => showManual(true));
+  $("cancelManualButton").addEventListener("click", () => showManual(false));
+  $("sendManualButton").addEventListener("click", () => {
+    const note = $("manualNote").value.trim();
+    if (!note) { setStatus("Enter a note first.", "warn"); return; }
+    postTimestamp(buildPayload({eventType:"MANUAL_NOTE", note, category:"manual"}), false);
+    $("manualNote").value = "";
+    showManual(false);
+  });
+  $("interventionButton").addEventListener("click", () => openModal("intervention"));
+  $("drugButton").addEventListener("click", () => openModal("drug"));
+  $("modalClose").addEventListener("click", closeModal);
+  $("modalBackdrop").addEventListener("click", e => { if (e.target === $("modalBackdrop")) closeModal(); });
+  $("otherSendButton").addEventListener("click", sendOtherItem);
+  $("otherDictateButton").addEventListener("click", dictateOtherItem);
+  $("clearButton").addEventListener("click", clearEpisode);
+}
+
+function init() {
+  loadSettings();
+  updateClock();
+  setInterval(updateClock, 1000);
+  renderAll();
+  setupSpeechRecognition();
+  bindEvents();
+  registerServiceWorker();
+  updateSyncStatus();
+  syncPending();
+  pullActiveEpisode(false);
+  window.addEventListener("online", () => { updateSyncStatus(); syncPending(); pullActiveEpisode(false); });
+  window.addEventListener("offline", updateSyncStatus);
+  setInterval(syncPending, 30000);
+  setInterval(() => pullActiveEpisode(false), 30000);
+  if (!getUserName()) setStatus("Add user/callsign in User setup before first use.", "warn");
+}
+init();
+</script>
+</body>
+</html>
