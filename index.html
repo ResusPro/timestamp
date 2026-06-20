@@ -5,20 +5,21 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#071625">
 <title>Timestamp Logger</title>
+<!-- Timestamp Logger PWA v1.1.4 | clear-semantics | no Mark/Generic | sync-in-local-timeline -->
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
 :root{--bg:#071625;--panel:#10263f;--panel2:#1b426d;--text:#f3f7fb;--muted:#b8c7d6;--accent:#33d17a;--warn:#ffcc00;--danger:#8a3333;--border:rgba(255,255,255,.16)}
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text);background:radial-gradient(circle at top,#153c66 0,#071625 42%,#04101c 100%);padding:env(safe-area-inset-top) 14px calc(116px + env(safe-area-inset-bottom)) 14px}
-main{width:min(720px,100%);margin:0 auto;padding:14px 0 20px}
+main{width:100%;max-width:720px;margin:0 auto;padding:10px 0 20px}
 header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px}
 h1{font-size:1.35rem;margin:0 0 2px;line-height:1.1}
-.sub,.small{color:var(--muted);font-size:.84rem;line-height:1.35}
+.sub,.small{color:var(--muted);font-size:.84rem;line-height:1.35}.header-link{color:#d8ffe8;text-decoration:none;font-weight:850}
 .clock{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;min-width:96px}
 .clock strong{display:block;color:var(--text);font-size:1.15rem}
 .card{background:rgba(16,38,63,.94);border:1px solid var(--border);border-radius:18px;padding:13px;margin-bottom:12px;box-shadow:0 12px 32px rgba(0,0,0,.28)}
-.status,.sync-status{border-radius:14px;padding:10px 12px;margin-bottom:10px;background:rgba(255,255,255,.08);color:var(--muted);text-align:center;font-size:.9rem;font-weight:700}
+.status{border-radius:14px;padding:10px 12px;margin-bottom:10px;background:rgba(255,255,255,.08);color:var(--muted);text-align:center;font-size:.9rem;font-weight:700}.sync-status{border-radius:10px;padding:7px 9px;margin:8px 0;background:rgba(255,255,255,.05);color:var(--muted);text-align:left;font-size:.78rem;font-weight:650}
 .status.ok,.sync-status.ok{color:#d8ffe8;background:rgba(51,209,122,.16)}
 .status.warn,.sync-status.warn{color:#fff4c2;background:rgba(255,204,0,.16)}
 .status.bad,.sync-status.bad{color:#ffe1e1;background:rgba(255,92,92,.16)}
@@ -65,13 +66,13 @@ textarea{min-height:78px;resize:vertical}
 .list-grid button .time{display:block;color:var(--muted);font-size:.82rem;margin-top:3px}
 .other-panel{display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
 .other-panel.active{display:block}
-@media(min-width:480px){.timeline-grid{grid-template-columns:1fr 1fr 1fr}.list-grid{grid-template-columns:1fr 1fr}}
+@media(min-width:760px){.timeline-grid{grid-template-columns:1fr 1fr 1fr}.list-grid{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
 <main>
 <header>
-  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.1.1</div></div>
+  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.1.4 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
   <div class="clock"><strong id="clockTime">--:--:--</strong><span id="clockDate">--</span></div>
 </header>
 
@@ -83,11 +84,7 @@ textarea{min-height:78px;resize:vertical}
   </div>
 
   <div id="status" class="status">Ready.</div>
-  <a class="output-button" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">📋 Open Output</a>
-  <div class="small" style="text-align:center;margin:-2px 0 8px;">Default Magpas output link. Other organisations need their own short link.</div>
-  <div id="syncStatus" class="sync-status">Sync status loading...</div>
-
-  <div class="timeline-grid" id="topTimelineGrid"></div>
+<div class="timeline-grid" id="topTimelineGrid"></div>
 
   <div class="action-row">
     <button id="interventionButton">Intervention <span class="count" id="interventionCount">0 logged</span></button>
@@ -120,7 +117,7 @@ textarea{min-height:78px;resize:vertical}
   </details>
 </section>
 
-<section class="card"><details open><summary>Local timeline</summary><div id="history"></div></details></section>
+<section class="card"><details open><summary>Local timeline</summary><div id="syncStatus" class="sync-status">Sync status loading...</div><div id="history"></div></details></section>
 </main>
 
 <div class="bottom-voice"><div class="bottom-voice-inner"><button class="voice-button" id="voiceButton">🎙️ VOICE NOTE</button></div></div>
@@ -138,7 +135,7 @@ textarea{min-height:78px;resize:vertical}
 </div>
 
 <script>
-const APP_VERSION = "1.1.1";
+const APP_VERSION = "1.1.4";
 const DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
 const DEFAULT_ORGANISATION = "Magpas";
 const DEFAULT_USER = "";
@@ -329,6 +326,17 @@ async function pullActiveEpisode(showStatus = false) {
 }
 
 function applyActiveEpisode(data) {
+  if (data && data.status === "cleared") {
+    localStorage.removeItem("timestamp_completions");
+    localStorage.removeItem("timestamp_scene_start");
+    localStorage.removeItem("timestamp_scene_stop");
+    localStorage.removeItem("timestamp_session_id");
+    renderAll();
+    const dbg = $("activeEpisodeDebug");
+    if (dbg) dbg.textContent = "Shared: cleared · ready for next job";
+    return;
+  }
+
   if (!data || data.status === "none") { renderAll(); return; }
   if (data.session_id) setSessionId(data.session_id);
   if (data.timer_start) localStorage.setItem("timestamp_scene_start", data.timer_start); else localStorage.removeItem("timestamp_scene_start");
@@ -451,7 +459,7 @@ function startVoice() { if (!state.recognition) { setStatus("Voice unavailable. 
 function showManual(show) { $("manualCard").style.display = show ? "block" : "none"; if (show) $("manualNote").focus(); }
 
 async function clearEpisode() {
-  const ok = confirm("End patient episode?\n\nThis will clear the local timeline.\n\nOutput: tiny.cc/MagpasTimestamp");
+  const ok = confirm("End patient episode?\n\nThis will clear the active screen and make you available for the next job.\n\nThe episode remains available in Output for HEMSbase / PHEMnet entry.");
   if (!ok) return;
   const payload = buildPayload({eventType:"CLEAR", note:"Patient episode cleared", category:"job"});
   await postTimestamp(payload, false);
@@ -461,12 +469,21 @@ async function clearEpisode() {
   localStorage.removeItem("timestamp_scene_stop");
   localStorage.removeItem("timestamp_session_id");
   renderAll();
-  setStatus("Patient episode cleared. Output: tiny.cc/MagpasTimestamp", "ok");
+  setStatus("Clear. Available for next job. Episode remains in Output.", "ok");
   await pullActiveEpisode(false);
 }
 
 function escapeHtml(str) { return String(str).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;"); }
-async function registerServiceWorker() { if ("serviceWorker" in navigator) { try { await navigator.serviceWorker.register("service-worker.js"); } catch(err) { console.warn("Service worker registration failed", err); } } }
+async function registerServiceWorker() {
+  if ("serviceWorker" in navigator) {
+    try {
+      const reg = await navigator.serviceWorker.register("service-worker.js");
+      if (reg && reg.update) reg.update();
+    } catch(err) {
+      console.warn("Service worker registration failed", err);
+    }
+  }
+}
 
 function bindEvents() {
   $("saveSettingsButton").addEventListener("click", saveSettings);
