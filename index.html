@@ -172,13 +172,13 @@ const INTERVENTIONS = [
   {label:"Tourniquet",type:"TOURNIQUET"}
 ];
 
-// Clinical milestones and most named interventions can only be captured once per episode.
-// ROSC is repeatable because a patient may re-arrest and achieve ROSC again.
-// Drug administrations and narrative notes remain repeatable.
+// Single-occurrence job milestones, including PHEA, are immutable.
+// Other interventions may legitimately recur; drugs, ROSC and notes can repeat.
+// Keep this list aligned with the backend and both native watch apps.
 const WRITE_ONCE_TYPES = new Set([
   ...TOP_TIMELINE_EVENTS,
   ...LATER_TIMELINE_EVENTS,
-  ...INTERVENTIONS.filter(event => event.type !== "ROSC")
+  ...INTERVENTIONS.filter(event => event.type === "PHEA")
 ].map(event => event.type));
 
 const DRUGS = [
@@ -671,7 +671,7 @@ function init() {
   document.addEventListener("visibilitychange", () => { if (!document.hidden) pullActiveEpisode(false); });
   setInterval(syncPending, 30000);
   setInterval(() => { if (!document.hidden) pullActiveEpisode(false); }, 15000);
-  if (!getUserName()) setStatus("Select Helimed66 or Medic33 in User setup before first use.", "warn");
+  if (!getUserName()) setStatus("Press Mobile to choose HM66, M33, CC01 or Personal before the first job.", "warn");
 }
 init();
 </script>
