@@ -1,6 +1,16 @@
-# Timestamp Logger PWA v1.1.5
+# Timestamp Logger PWA v1.1.6
 
 Compatible with the existing Backend v1.1.1 API; backend write-once enforcement is still required before this is a complete multi-device fix.
+
+## v1.1.6 — team-wide PWA sync repair (22 November 2026)
+
+- Never cache cross-origin Google Apps Script episode GET responses in the service worker; stale cached responses previously could leave the other phone behind.
+- Treat existing `organisation + user` backend key as `organisation + team callsign` for backward compatibility. Suggested teams: `Helimed66`, `Medic33`.
+- Optional operator/device metadata remains separate and is included in POST for future audit support.
+- Switch team safely without mixing local completion indicators; preserve queued events from previous team.
+- Pull from backend every 15 seconds in foreground and immediately when the app regains focus.
+- Ignore a poll from the old team that completes after team switch; distinguish empty upload queue from confirmed server acceptance.
+- Still requires the backend and watch to implement canonical team identity and write-once milestones; this PWA patch is not the entire cross-device fix.
 
 ## v1.1.5 — client-side duplicate milestone protection (22 November 2026)
 
