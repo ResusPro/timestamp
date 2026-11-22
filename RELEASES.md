@@ -28,3 +28,12 @@ After selection, all actions from watch, Garmin and phones use the same team-wid
 See [Issue #2](https://github.com/ResusPro/timestamp/issues/2) for write-once backend/watch enforcement, [Issue #3](https://github.com/ResusPro/timestamp/issues/3) for team-wide sync, and [PR #1](https://github.com/ResusPro/timestamp/pull/1) for PWA release candidate.
 
 **Important:** The consolidated ZIP is persistent in the user's ChatGPT Library, but its non-PWA code has not yet been imported into this public GitHub repository. The ideal next repository cleanup is to add `backend/`, `wearos/`, `garmin/` alongside the existing PWA; until then, the ZIP is the complete captured source for these three platforms and the PWA is pinned to its Git commit. Do not commit activation codes or patient data here.
+
+## Moving to one private development repository
+
+**Migration planned, not yet executed.** The existing `ResusPro/timestamp` repository is **public** and remains the deployment target for the PWA. The complete backend, Wear OS, Garmin and PWA source should instead live in a **new private** development repository (proposed name `ResusPro/timestamp-platform`), with the public PWA files published from there.
+
+The prepared GitHub-ready consolidated workspace ZIP is stored in the user's ChatGPT Library under `/Timestamp/releases/Timestamp-GitHub-Workspace-v1.3.0-rc1.zip`. It includes a single Windows import script, all current source, an initial backend smoke test/PWA syntax/Android APK GitHub Actions workflow, and one-time Apps Script/Garmin setup instructions. The first GitHub import has **not been completed**; no production deployments have been changed.
+
+Track the integration and automation setup in [issue #4](https://github.com/ResusPro/timestamp/issues/4). Do not import signing material, activation secrets or clinical data into any repository. Backend should require explicit production approval after synthetic-job testing.
+
