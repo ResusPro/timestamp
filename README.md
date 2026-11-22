@@ -1,6 +1,14 @@
-# Timestamp Logger PWA v1.1.6
+# Timestamp Logger PWA v1.3.0-rc1
 
 Compatible with the existing Backend v1.1.1 API; backend write-once enforcement is still required before this is a complete multi-device fix.
+
+## v1.3.0-rc1 — callsign selection at Mobile
+
+- MAGPAS callers choose HM66, M33, CC01 or Personal at the first Mobile event of a new episode.
+- HM66/M33 map to legacy team keys Helimed66/Medic33, preserving old-device compatibility.
+- User setup retains organisation, optional operator/device name and an editable personal callsign.
+- Team selection is persisted with the episode; Mobile cannot be tapped again to overwrite the first accepted timestamp.
+- This release candidate also requires the paired backend v1.3.0-rc1 and watch/Garmin updates. Do not deploy PWA first on production teams.
 
 ## v1.1.6 — team-wide PWA sync repair (22 November 2026)
 
