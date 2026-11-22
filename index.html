@@ -72,7 +72,7 @@ textarea{min-height:78px;resize:vertical}
 <body>
 <main>
 <header>
-  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.1.5 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
+  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.1.6 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
   <div class="clock"><strong id="clockTime">--:--:--</strong><span id="clockDate">--</span></div>
 </header>
 
@@ -110,8 +110,10 @@ textarea{min-height:78px;resize:vertical}
     <summary>User setup</summary>
     <div class="row">
       <div><label for="organisation">Organisation</label><input id="organisation" placeholder="e.g. Magpas"></div>
-      <div><label for="userName">User / callsign</label><input id="userName" placeholder="e.g. Nick"></div>
+      <div><label for="userName">Team callsign (shared across devices)</label><input id="userName" list="teamOptions" placeholder="Helimed66 or Medic33"><datalist id="teamOptions"><option value="Helimed66"></option><option value="Medic33"></option></datalist></div>
     </div>
+    <div class="row"><div><label for="operatorName">Operator / device (optional)</label><input id="operatorName" placeholder="e.g. Nick or Doctor phone"></div></div>
+    <div class="small">All devices on the same team need the same callsign. Changing teams loads that team's active job.</div>
     <div class="row"><button id="saveSettingsButton">Save setup</button><button id="pullStateButton">Pull shared state</button></div>
     <div class="small" id="activeEpisodeDebug" style="margin-top:8px;"></div>
   </details>
@@ -135,7 +137,7 @@ textarea{min-height:78px;resize:vertical}
 </div>
 
 <script>
-const APP_VERSION = "1.1.5";
+const APP_VERSION = "1.1.6";
 const DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
 const DEFAULT_ORGANISATION = "Magpas";
 const DEFAULT_USER = "";
@@ -199,7 +201,15 @@ function updateClock() { $("clockTime").textContent = formatTime(); $("clockDate
 function setStatus(message, kind = "") { const el = $("status"); el.className = "status" + (kind ? " " + kind : ""); el.textContent = message; }
 function getEndpoint() { return DEFAULT_ENDPOINT_URL.trim(); }
 function getOrganisation() { return (localStorage.getItem("timestamp_organisation") || DEFAULT_ORGANISATION).trim(); }
-function getUserName() { return (localStorage.getItem("timestamp_user") || DEFAULT_USER).trim(); }
+function canonicalTeam(value) {
+  const raw = String(value || "").trim();
+  if (/^heli[ -]?med[ -]?66$/i.test(raw)) return "Helimed66";
+  if (/^medic[ -]?33$/i.test(raw)) return "Medic33";
+  return raw;
+}
+// Backward-compatible: backend 'user' field currently functions as the team key.
+function getUserName() { return canonicalTeam(localStorage.getItem("timestamp_user") || DEFAULT_USER); }
+function getOperatorName() { return (localStorage.getItem("timestamp_operator") || "").trim(); }
 function getSessionId() { return localStorage.getItem("timestamp_session_id") || ""; }
 function setSessionId(id) { if (id) localStorage.setItem("timestamp_session_id", id); }
 function getCompletions() { return JSON.parse(localStorage.getItem("timestamp_completions") || "{}"); }
@@ -213,16 +223,31 @@ function makeLocalId() { return "local-" + Date.now() + "-" + Math.random().toSt
 function loadSettings() {
   $("organisation").value = getOrganisation();
   $("userName").value = getUserName();
+  $("operatorName").value = getOperatorName();
   if (!$("userName").value.trim()) $("setupDetails").open = true;
 }
 function saveSettings() {
   const org = $("organisation").value.trim() || DEFAULT_ORGANISATION;
-  const user = $("userName").value.trim();
+  const user = canonicalTeam($("userName").value);
+  const operator = $("operatorName").value.trim();
+  const changedTeam = org !== getOrganisation() || user !== getUserName();
   localStorage.setItem("timestamp_organisation", org);
   localStorage.setItem("timestamp_user", user);
+  localStorage.setItem("timestamp_operator", operator);
   $("organisation").value = org;
   $("userName").value = user;
-  setStatus("User setup saved.", "ok");
+  $("operatorName").value = operator;
+  if (changedTeam) {
+    // Leave queued events intact: each payload retains its original team identity.
+    localStorage.removeItem("timestamp_completions");
+    localStorage.removeItem("timestamp_scene_start");
+    localStorage.removeItem("timestamp_scene_stop");
+    localStorage.removeItem("timestamp_session_id");
+    state.lastPullAt = 0;
+    state.sceneAlertLevel = 0;
+    renderAll();
+  }
+  setStatus(changedTeam ? `Switched to ${user || "unassigned team"}. Loading shared job…` : "Team setup saved.", "ok");
   pullActiveEpisode(true);
 }
 
@@ -237,6 +262,8 @@ function buildPayload({eventType, note, category}) {
     note: note || "",
     prompt: `${formatTime(d)} - ${note || eventType || ""}`,
     user: getUserName(),
+    team_id: getUserName(),
+    operator: getOperatorName(),
     organisation: getOrganisation(),
     source: APP_SOURCE,
     app_version: APP_VERSION,
@@ -260,7 +287,7 @@ function blockDuplicateMilestone(payload) {
 async function postTimestamp(payload, markComplete = true) {
   // Check before history, queue, timer, or backend submission: a second tap is inert.
   if (blockDuplicateMilestone(payload)) return false;
-  if (!payload.user) { setStatus("Add user/callsign in User setup before logging.", "warn"); $("setupDetails").open = true; return false; }
+  if (!payload.user) { setStatus("Select a team callsign in User setup before logging.", "warn"); $("setupDetails").open = true; return false; }
   saveHistory(payload);
   enqueuePending(payload);
   if (markComplete && payload.event_type && !["VOICE_NOTE","MANUAL_NOTE","TEST","CLEAR","JOB_COMPLETE"].includes(payload.event_type)) {
@@ -326,7 +353,7 @@ async function syncPending() {
   setPendingQueue(still);
   renderHistory();
   updateSyncStatus();
-  setStatus(still.length ? `${still.length} pending sync. Will retry.` : "All synced.", still.length ? "warn" : "ok");
+  setStatus(still.length ? `${still.length} pending sync. Will retry.` : "Upload submitted; checking shared episode.", still.length ? "warn" : "ok");
 }
 
 async function pullActiveEpisode(showStatus = false) {
@@ -334,10 +361,12 @@ async function pullActiveEpisode(showStatus = false) {
   const org = getOrganisation();
   const user = getUserName();
   if (!org || !user) return;
+  const requestedIdentity = org + "|" + user;
   const url = getEndpoint() + `?action=activeEpisode&organisation=${encodeURIComponent(org)}&user=${encodeURIComponent(user)}`;
   try {
     const res = await fetch(url, { method:"GET", cache:"no-store" });
     const data = await res.json();
+    if (requestedIdentity !== getOrganisation() + "|" + getUserName()) return;
     applyActiveEpisode(data);
     state.lastPullAt = Date.now();
     if (showStatus) setStatus("Shared episode state loaded.", "ok");
@@ -358,7 +387,12 @@ function applyActiveEpisode(data) {
     return;
   }
 
-  if (!data || data.status === "none") { renderAll(); return; }
+  if (!data || data.status === "none") {
+    renderAll();
+    const dbg = $("activeEpisodeDebug");
+    if (dbg) dbg.textContent = `Shared: no active episode for ${getUserName() || "unassigned team"}`;
+    return;
+  }
   const previousSession = getSessionId();
   // The shared server may have advanced to another job since this device last pulled.
   if (data.session_id && previousSession && previousSession !== data.session_id) {
@@ -393,7 +427,7 @@ function updateSyncStatus() {
   const pulled = state.lastPullAt ? ` · shared ${Math.round((Date.now() - state.lastPullAt) / 1000)}s ago` : "";
   if (!navigator.onLine) { el.className = "sync-status bad"; el.textContent = count ? `Offline · ${count} pending` : "Offline"; }
   else if (count) { el.className = "sync-status warn"; el.textContent = `Online · ${count} pending sync${pulled}`; }
-  else { el.className = "sync-status ok"; el.textContent = `Online · all synced${pulled}`; }
+  else { el.className = "sync-status ok"; el.textContent = `Online · queue empty; checking shared state${pulled}`; }
 }
 
 function vibrate(pattern) { if ("vibrate" in navigator) navigator.vibrate(pattern); }
@@ -560,9 +594,11 @@ function init() {
   pullActiveEpisode(false);
   window.addEventListener("online", () => { updateSyncStatus(); syncPending(); pullActiveEpisode(false); });
   window.addEventListener("offline", updateSyncStatus);
+  window.addEventListener("focus", () => pullActiveEpisode(false));
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) pullActiveEpisode(false); });
   setInterval(syncPending, 30000);
-  setInterval(() => pullActiveEpisode(false), 30000);
-  if (!getUserName()) setStatus("Add user/callsign in User setup before first use.", "warn");
+  setInterval(() => { if (!document.hidden) pullActiveEpisode(false); }, 15000);
+  if (!getUserName()) setStatus("Select Helimed66 or Medic33 in User setup before first use.", "warn");
 }
 init();
 </script>
