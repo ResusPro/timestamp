@@ -345,20 +345,32 @@ function saveHistory(payload) { const h = getHistory(); h.unshift(payload); setH
 function markHistorySent(localId) { setHistory(getHistory().map(x => x.local_id === localId ? {...x, sync_status:"sent"} : x)); }
 
 async function syncPending() {
+  if (state.syncInFlight) return;
   if (!navigator.onLine) { updateSyncStatus(); return; }
   const q = getPendingQueue();
   if (!q.length) { updateSyncStatus(); return; }
+  state.syncInFlight = true;
   const still = [];
-  for (const item of q) {
-    try {
-      await fetch(getEndpoint(), { method:"POST", mode:"no-cors", headers:{"Content-Type":"application/json"}, body:JSON.stringify({...item, sync_status:"sent"}) });
-      markHistorySent(item.local_id);
-    } catch (err) { still.push(item); }
+  try {
+    for (const item of q) {
+      try {
+        await fetch(getEndpoint(), { method:"POST", mode:"no-cors", headers:{"Content-Type":"application/json"}, body:JSON.stringify({...item, sync_status:"sent"}) });
+        markHistorySent(item.local_id);
+      } catch (err) { still.push(item); }
+    }
+  } finally {
+    // Preserve entries added by button presses while asynchronous POSTs run.
+    const attempted = new Set(q.map(item => item.local_id));
+    const newlyQueued = getPendingQueue().filter(item => !attempted.has(item.local_id));
+    setPendingQueue(still.concat(newlyQueued));
+    state.syncInFlight = false;
+    renderHistory();
+    updateSyncStatus();
+    setStatus(still.length || newlyQueued.length
+      ? `${still.length + newlyQueued.length} pending sync. Will retry.`
+      : "Upload submitted; checking shared episode.",
+      still.length || newlyQueued.length ? "warn" : "ok");
   }
-  setPendingQueue(still);
-  renderHistory();
-  updateSyncStatus();
-  setStatus(still.length ? `${still.length} pending sync. Will retry.` : "Upload submitted; checking shared episode.", still.length ? "warn" : "ok");
 }
 
 async function pullActiveEpisode(showStatus = false) {
