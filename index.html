@@ -72,7 +72,7 @@ textarea{min-height:78px;resize:vertical}
 <body>
 <main>
 <header>
-  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.1.4 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
+  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.1.5 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
   <div class="clock"><strong id="clockTime">--:--:--</strong><span id="clockDate">--</span></div>
 </header>
 
@@ -135,7 +135,7 @@ textarea{min-height:78px;resize:vertical}
 </div>
 
 <script>
-const APP_VERSION = "1.1.4";
+const APP_VERSION = "1.1.5";
 const DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
 const DEFAULT_ORGANISATION = "Magpas";
 const DEFAULT_USER = "";
@@ -169,6 +169,15 @@ const INTERVENTIONS = [
   {label:"Thoracostomy",type:"THORACOSTOMY"},
   {label:"Tourniquet",type:"TOURNIQUET"}
 ];
+
+// Clinical milestones and most named interventions can only be captured once per episode.
+// ROSC is repeatable because a patient may re-arrest and achieve ROSC again.
+// Drug administrations and narrative notes remain repeatable.
+const WRITE_ONCE_TYPES = new Set([
+  ...TOP_TIMELINE_EVENTS,
+  ...LATER_TIMELINE_EVENTS,
+  ...INTERVENTIONS.filter(event => event.type !== "ROSC")
+].map(event => event.type));
 
 const DRUGS = [
   {label:"Adrenaline",type:"ADRENALINE"},
@@ -238,7 +247,19 @@ function buildPayload({eventType, note, category}) {
   };
 }
 
+function blockDuplicateMilestone(payload) {
+  if (!WRITE_ONCE_TYPES.has(payload.event_type)) return false;
+  const previous = getCompletions()[payload.event_type];
+  if (!previous) return false;
+  const recordedAt = previous.time || "an earlier time";
+  setStatus(`${payload.note || payload.event_type} already recorded at ${recordedAt}. Original timestamp retained.`, "warn");
+  vibrate([75, 60, 75]);
+  return true;
+}
+
 async function postTimestamp(payload, markComplete = true) {
+  // Check before history, queue, timer, or backend submission: a second tap is inert.
+  if (blockDuplicateMilestone(payload)) return false;
   if (!payload.user) { setStatus("Add user/callsign in User setup before logging.", "warn"); $("setupDetails").open = true; return false; }
   saveHistory(payload);
   enqueuePending(payload);
@@ -338,6 +359,11 @@ function applyActiveEpisode(data) {
   }
 
   if (!data || data.status === "none") { renderAll(); return; }
+  const previousSession = getSessionId();
+  // The shared server may have advanced to another job since this device last pulled.
+  if (data.session_id && previousSession && previousSession !== data.session_id) {
+    localStorage.removeItem("timestamp_completions");
+  }
   if (data.session_id) setSessionId(data.session_id);
   if (data.timer_start) localStorage.setItem("timestamp_scene_start", data.timer_start); else localStorage.removeItem("timestamp_scene_start");
   if (data.timer_stop) localStorage.setItem("timestamp_scene_stop", data.timer_stop); else localStorage.removeItem("timestamp_scene_stop");
@@ -346,6 +372,12 @@ function applyActiveEpisode(data) {
   Object.keys(timeline).forEach(type => {
     const ev = timeline[type] || {};
     if (!["VOICE_NOTE","MANUAL_NOTE","TEST","CLEAR","JOB_COMPLETE"].includes(type)) {
+      const incomingMs = Date.parse(ev.event_time || "");
+      const storedMs = Date.parse(done[type]?.event_time || "");
+      // Preserve the earliest known write-once event if the backend still exposes
+      // a later duplicate. True multi-device immutability needs a backend guard.
+      if (WRITE_ONCE_TYPES.has(type) && done[type] &&
+          (!Number.isFinite(incomingMs) || (Number.isFinite(storedMs) && storedMs <= incomingMs))) return;
       done[type] = { time: ev.event_time_local || "", note: ev.note || "", category: ev.event_category || "", event_time: ev.event_time || "", source: ev.source || "", app_version: ev.app_version || "" };
     }
   });
@@ -376,6 +408,10 @@ function renderTimelineGroup(grid, events) {
   events.forEach(ev => {
     const btn = document.createElement("button");
     btn.className = "timeline-btn" + (done[ev.type] ? " done" : "");
+    if (done[ev.type]) {
+      btn.title = `Recorded at ${done[ev.type].time || "previously"} — timestamp locked`;
+      btn.setAttribute("aria-disabled", "true");
+    }
     if (ev.full) btn.style.gridColumn = "1 / -1";
     btn.innerHTML = `<span class="label">${escapeHtml(ev.label)}</span><span class="time">${done[ev.type]?.time || ""}</span>`;
     btn.addEventListener("click", () => postTimestamp(buildPayload({eventType:ev.type, note:ev.label, category:"timeline"})));
@@ -413,6 +449,10 @@ function openModal(type) {
   items.forEach(item => {
     const btn = document.createElement("button");
     btn.className = done[item.type] ? "done" : "";
+    if (done[item.type] && WRITE_ONCE_TYPES.has(item.type)) {
+      btn.title = `Recorded at ${done[item.type].time || "previously"} — timestamp locked`;
+      btn.setAttribute("aria-disabled", "true");
+    }
     btn.innerHTML = `${escapeHtml(item.label)}${done[item.type] ? `<span class="time">✓ ${escapeHtml(done[item.type].time)}</span>` : ""}`;
     btn.addEventListener("click", () => { closeModal(); postTimestamp(buildPayload({eventType:item.type, note:item.label, category:type})); });
     list.appendChild(btn);
