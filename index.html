@@ -72,7 +72,7 @@ textarea{min-height:78px;resize:vertical}
 <body>
 <main>
 <header>
-  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.1.6 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
+  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.3.0-rc1 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
   <div class="clock"><strong id="clockTime">--:--:--</strong><span id="clockDate">--</span></div>
 </header>
 
@@ -110,10 +110,10 @@ textarea{min-height:78px;resize:vertical}
     <summary>User setup</summary>
     <div class="row">
       <div><label for="organisation">Organisation</label><input id="organisation" placeholder="e.g. Magpas"></div>
-      <div><label for="userName">Team callsign (shared across devices)</label><input id="userName" list="teamOptions" placeholder="Helimed66 or Medic33"><datalist id="teamOptions"><option value="Helimed66"></option><option value="Medic33"></option></datalist></div>
+      <div><label for="userName">Current team (selected at Mobile)</label><input id="userName" readonly placeholder="Select at Mobile"></div>
     </div>
-    <div class="row"><div><label for="operatorName">Operator / device (optional)</label><input id="operatorName" placeholder="e.g. Nick or Doctor phone"></div></div>
-    <div class="small">All devices on the same team need the same callsign. Changing teams loads that team's active job.</div>
+    <div class="row"><div><label for="operatorName">Operator / device (optional)</label><input id="operatorName" placeholder="e.g. Nick or Doctor phone"></div><div><label for="personalCallsign">Personal callsign</label><input id="personalCallsign" placeholder="e.g. Nick"></div></div>
+    <div class="small">When pressing Mobile at the start of a job, choose HM66, M33, CC01 or Personal. The selection is kept for the whole job and shared across devices.</div>
     <div class="row"><button id="saveSettingsButton">Save setup</button><button id="pullStateButton">Pull shared state</button></div>
     <div class="small" id="activeEpisodeDebug" style="margin-top:8px;"></div>
   </details>
@@ -137,7 +137,7 @@ textarea{min-height:78px;resize:vertical}
 </div>
 
 <script>
-const APP_VERSION = "1.1.6";
+const APP_VERSION = "1.3.0-rc1";
 const DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
 const DEFAULT_ORGANISATION = "Magpas";
 const DEFAULT_USER = "";
@@ -203,8 +203,9 @@ function getEndpoint() { return DEFAULT_ENDPOINT_URL.trim(); }
 function getOrganisation() { return (localStorage.getItem("timestamp_organisation") || DEFAULT_ORGANISATION).trim(); }
 function canonicalTeam(value) {
   const raw = String(value || "").trim();
-  if (/^heli[ -]?med[ -]?66$/i.test(raw)) return "Helimed66";
-  if (/^medic[ -]?33$/i.test(raw)) return "Medic33";
+  if (/^(hm[ -]?66|heli[ -]?med[ -]?66)$/i.test(raw)) return "Helimed66";
+  if (/^(m[ -]?33|medic[ -]?33)$/i.test(raw)) return "Medic33";
+  if (/^cc[ -]?01$/i.test(raw)) return "CC01";
   return raw;
 }
 // Backward-compatible: backend 'user' field currently functions as the team key.
@@ -224,19 +225,23 @@ function loadSettings() {
   $("organisation").value = getOrganisation();
   $("userName").value = getUserName();
   $("operatorName").value = getOperatorName();
+  $("personalCallsign").value = localStorage.getItem("timestamp_personal_callsign") || "";
   if (!$("userName").value.trim()) $("setupDetails").open = true;
 }
 function saveSettings() {
   const org = $("organisation").value.trim() || DEFAULT_ORGANISATION;
-  const user = canonicalTeam($("userName").value);
+  const user = getUserName(); // Team is chosen at Mobile, not edited in settings.
   const operator = $("operatorName").value.trim();
+  const personal = $("personalCallsign").value.trim();
   const changedTeam = org !== getOrganisation() || user !== getUserName();
   localStorage.setItem("timestamp_organisation", org);
   localStorage.setItem("timestamp_user", user);
   localStorage.setItem("timestamp_operator", operator);
+  localStorage.setItem("timestamp_personal_callsign", personal);
   $("organisation").value = org;
   $("userName").value = user;
   $("operatorName").value = operator;
+  $("personalCallsign").value = personal;
   if (changedTeam) {
     // Leave queued events intact: each payload retains its original team identity.
     localStorage.removeItem("timestamp_completions");
@@ -362,7 +367,7 @@ async function pullActiveEpisode(showStatus = false) {
   const user = getUserName();
   if (!org || !user) return;
   const requestedIdentity = org + "|" + user;
-  const url = getEndpoint() + `?action=activeEpisode&organisation=${encodeURIComponent(org)}&user=${encodeURIComponent(user)}`;
+  const url = getEndpoint() + `?action=activeEpisode&organisation=${encodeURIComponent(org)}&user=${encodeURIComponent(user)}&team_id=${encodeURIComponent(user)}`;
   try {
     const res = await fetch(url, { method:"GET", cache:"no-store" });
     const data = await res.json();
@@ -448,7 +453,7 @@ function renderTimelineGroup(grid, events) {
     }
     if (ev.full) btn.style.gridColumn = "1 / -1";
     btn.innerHTML = `<span class="label">${escapeHtml(ev.label)}</span><span class="time">${done[ev.type]?.time || ""}</span>`;
-    btn.addEventListener("click", () => postTimestamp(buildPayload({eventType:ev.type, note:ev.label, category:"timeline"})));
+    btn.addEventListener("click", () => ev.type === "MOBILE" ? openModal("callsign") : postTimestamp(buildPayload({eventType:ev.type, note:ev.label, category:"timeline"})));
     grid.appendChild(btn);
   });
 }
@@ -470,7 +475,63 @@ function renderHistory() {
 
 function renderAll() { renderTimeline(); renderCounts(); renderHistory(); updateSceneTimer(); }
 
+async function chooseMobileCallsign(label) {
+  const selected = label === "Personal"
+    ? (localStorage.getItem("timestamp_personal_callsign") || "").trim()
+    : canonicalTeam(label);
+  if (!selected) {
+    setStatus("Enter a personal callsign in User setup first.", "warn");
+    $("setupDetails").open = true;
+    closeModal();
+    return;
+  }
+  closeModal();
+  // Avoid changing team halfway through a job, or silently leaving an active
+  // patient episode on the previously selected crew.
+  if (Object.keys(getCompletions()).length && getSessionId()) {
+    setStatus("An episode is active. Clear it before choosing another job.", "warn");
+    return;
+  }
+  const previous = getUserName();
+  if (selected !== previous) {
+    localStorage.setItem("timestamp_user", selected);
+    localStorage.removeItem("timestamp_completions");
+    localStorage.removeItem("timestamp_scene_start");
+    localStorage.removeItem("timestamp_scene_stop");
+    localStorage.removeItem("timestamp_session_id");
+    $("userName").value = selected;
+    renderAll();
+  }
+  await pullActiveEpisode(false);
+  if (getCompletions().MOBILE) {
+    setStatus(`Mobile already recorded at ${getCompletions().MOBILE.time || "an earlier time"} for ${selected}.`, "warn");
+    return;
+  }
+  await postTimestamp(buildPayload({eventType:"MOBILE", note:"Mobile", category:"timeline"}));
+}
+
 function openModal(type) {
+  if (type === "callsign") {
+    if (getCompletions().MOBILE) {
+      setStatus(`Mobile already recorded at ${getCompletions().MOBILE.time || "an earlier time"}.`, "warn");
+      return;
+    }
+    state.modalType = type;
+    $("modalTitle").textContent = "Mobile · select callsign";
+    $("otherPanel").classList.remove("active");
+    const list = $("modalList");
+    list.innerHTML = "";
+    const options = getOrganisation().toLowerCase() === "magpas"
+      ? ["HM66", "M33", "CC01", "Personal"] : ["Personal"];
+    options.forEach(label => {
+      const btn = document.createElement("button");
+      btn.textContent = label === "Personal" ? `Personal: ${localStorage.getItem("timestamp_personal_callsign") || "set in setup"}` : label;
+      btn.addEventListener("click", () => chooseMobileCallsign(label));
+      list.appendChild(btn);
+    });
+    $("modalBackdrop").style.display = "flex";
+    return;
+  }
   state.modalType = type;
   const items = type === "intervention" ? INTERVENTIONS : DRUGS;
   $("modalTitle").textContent = type === "intervention" ? "Intervention" : "Drug";
