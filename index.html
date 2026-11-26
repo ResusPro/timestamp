@@ -87,7 +87,7 @@ textarea{min-height:78px;resize:vertical}
 <body>
 <main>
 <header>
-  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.3.0-rc9 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
+  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.3.0-rc10 · <a id="outputLink" class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener noreferrer">Output</a></div></div>
   <div class="clock"><strong id="clockTime">--:--:--</strong><span id="clockDate">--</span></div>
 </header>
 
@@ -156,7 +156,7 @@ textarea{min-height:78px;resize:vertical}
 </div>
 
 <script>
-const APP_VERSION = "1.3.0-rc9";
+const APP_VERSION = "1.3.0-rc10";
 const DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
 const DEFAULT_ORGANISATION = "Magpas";
 const DEFAULT_USER = "";
@@ -219,6 +219,23 @@ function updateClock() { $("clockTime").textContent = formatTime(); $("clockDate
 function setStatus(message, kind = "") { const el = $("status"); el.className = "status" + (kind ? " " + kind : ""); el.textContent = message; }
 function getEndpoint() { return DEFAULT_ENDPOINT_URL.trim(); }
 function getOrganisation() { return (localStorage.getItem("timestamp_organisation") || DEFAULT_ORGANISATION).trim(); }
+// Existing verified organisation output tabs. The workbook retains its Google
+// access controls. An unfamiliar organisation must never default to Magpas.
+const OUTPUT_WORKBOOK_URL = "https://docs.google.com/spreadsheets/d/1Sb3ln-FMnkSAOIx-YvVBjOerpPiO0WpfEWF7XrfJrdA/edit";
+const OUTPUT_TAB_IDS = Object.freeze({"magpas":"1202462741","timestamp test":"659070164","dsaa":"1111910216","unspecified":"1888325012"});
+function outputDestination(organisation) {
+  const key=String(organisation||"").trim().toLowerCase();
+  const gid=Object.hasOwn(OUTPUT_TAB_IDS,key)?OUTPUT_TAB_IDS[key]:null;
+  return {url:gid?OUTPUT_WORKBOOK_URL+"#gid="+gid:OUTPUT_WORKBOOK_URL,matched:!!gid};
+}
+function updateOutputLink() {
+  const link=$("outputLink");
+  if(!link)return;
+  const org=getOrganisation(), dest=outputDestination(org);
+  link.href=dest.url;
+  link.title=dest.matched?"Open "+org+" output":"Output tab not mapped yet; open workbook and choose "+org+"_OUTPUT";
+  link.textContent=dest.matched?"Output":"Output (workbook)";
+}
 function canonicalTeam(value) {
   const raw = String(value || "").trim();
   if (/^(hm[ -]?66|heli[ -]?med[ -]?66)$/i.test(raw)) return "Helimed66";
@@ -252,6 +269,7 @@ function setPendingQueue(queue) { localStorage.setItem("timestamp_pending_queue"
 function makeLocalId() { return "local-" + Date.now() + "-" + Math.random().toString(36).slice(2,10); }
 
 function loadSettings() {
+  updateOutputLink();
   $("organisation").value = getOrganisation();
   $("userName").value = getUserName();
   $("operatorName").value = getOperatorName();
@@ -266,6 +284,7 @@ function saveSettings() {
   const personal = $("personalCallsign").value.trim();
   const changedTeam = org !== getOrganisation() || user !== getUserName();
   localStorage.setItem("timestamp_organisation", org);
+  updateOutputLink();
   localStorage.setItem("timestamp_user", user);
   localStorage.setItem("timestamp_operator", operator);
   localStorage.setItem("timestamp_personal_callsign", personal);
