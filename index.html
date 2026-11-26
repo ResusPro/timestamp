@@ -39,6 +39,14 @@ button:active{transform:translateY(1px)}
 .timeline-btn.done{background:#244635;color:#e8fff0}
 .timeline-btn.done::after{content:"✓";position:absolute;top:10px;right:12px;color:var(--accent);font-size:1.2rem}
 .timeline-btn.done .time{color:#d8ffe8}
+.phea-button{width:100%;margin-top:10px;text-align:left;min-height:64px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px}
+.phea-button .phea-label{display:block;font-size:1.05rem;font-weight:900}
+.phea-button .phea-detail{display:block;font-size:.78rem;color:#e1eaf2;margin-top:3px}
+.phea-button .phea-countdown{text-align:right;font-variant-numeric:tabular-nums;font-size:1.55rem;font-weight:950;line-height:1.15}
+.phea-button .phea-phase{display:block;font-size:.72rem;font-weight:800;text-align:right;color:#f3f7fb}
+.phea-button.phea-green{background:#244f38}
+.phea-button.phea-amber{background:#805316}
+.phea-button.phea-red{background:#8a3333}
 .action-row,.job-row,.row{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}
 .danger{background:var(--danger)!important}
 .secondary{background:#1b426d!important}
@@ -72,7 +80,7 @@ textarea{min-height:78px;resize:vertical}
 <body>
 <main>
 <header>
-  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.3.0-rc3 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
+  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.3.0-rc4 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
   <div class="clock"><strong id="clockTime">--:--:--</strong><span id="clockDate">--</span></div>
 </header>
 
@@ -86,6 +94,10 @@ textarea{min-height:78px;resize:vertical}
   <div id="status" class="status">Ready.</div>
 <div class="timeline-grid" id="topTimelineGrid"></div>
 
+  <button id="pheaButton" class="phea-button" type="button">
+    <span><span class="phea-label">PHEA</span><span class="phea-detail" id="pheaDetail">Record PHEA drugs</span></span>
+    <span><span class="phea-countdown" id="pheaCountdown"></span><span class="phea-phase" id="pheaPhase"></span></span>
+  </button>
   <div class="action-row">
     <button id="interventionButton">Intervention <span class="count" id="interventionCount">0 logged</span></button>
     <button id="drugButton">Drug <span class="count" id="drugCount">0 logged</span></button>
@@ -137,7 +149,7 @@ textarea{min-height:78px;resize:vertical}
 </div>
 
 <script>
-const APP_VERSION = "1.3.0-rc3";
+const APP_VERSION = "1.3.0-rc4";
 const DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
 const DEFAULT_ORGANISATION = "Magpas";
 const DEFAULT_USER = "";
@@ -166,7 +178,6 @@ const INTERVENTIONS = [
   {label:"IO Access",type:"IO_ACCESS"},
   {label:"IV Access",type:"IV_ACCESS"},
   {label:"Pelvic Binder",type:"PELVIC_BINDER"},
-  {label:"PHEA",type:"PHEA"},
   {label:"ROSC",type:"ROSC"},
   {label:"Thoracostomy",type:"THORACOSTOMY"},
   {label:"Tourniquet",type:"TOURNIQUET"}
@@ -178,7 +189,7 @@ const INTERVENTIONS = [
 const WRITE_ONCE_TYPES = new Set([
   ...TOP_TIMELINE_EVENTS,
   ...LATER_TIMELINE_EVENTS,
-  ...INTERVENTIONS.filter(event => event.type === "PHEA")
+  {type:"PHEA"}
 ].map(event => event.type));
 
 const DRUGS = [
@@ -197,7 +208,7 @@ const state = { recognition:null, modalType:null, sceneAlertLevel:0, lastPullAt:
 
 function formatTime(date = new Date()) { return new Intl.DateTimeFormat("en-GB", {hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false}).format(date); }
 function formatDate(date = new Date()) { return new Intl.DateTimeFormat("en-GB", {weekday:"short", day:"2-digit", month:"short"}).format(date); }
-function updateClock() { $("clockTime").textContent = formatTime(); $("clockDate").textContent = formatDate(); updateSceneTimer(); updateSyncStatus(); }
+function updateClock() { $("clockTime").textContent = formatTime(); $("clockDate").textContent = formatDate(); updateSceneTimer(); updatePheaButton(); updateSyncStatus(); }
 function setStatus(message, kind = "") { const el = $("status"); el.className = "status" + (kind ? " " + kind : ""); el.textContent = message; }
 function getEndpoint() { return DEFAULT_ENDPOINT_URL.trim(); }
 function getOrganisation() { return (localStorage.getItem("timestamp_organisation") || DEFAULT_ORGANISATION).trim(); }
@@ -309,6 +320,58 @@ async function postTimestamp(payload, markComplete = true) {
   await syncPending();
   await pullActiveEpisode(false);
   return true;
+}
+
+// Match the latest watch reminder cadence: 45s warning, 60s activation,
+// then 45-minute reminders. These are elapsed-time reminders only.
+const PHEA_ACTIVATION_SECONDS = 60;
+const PHEA_WARNING_SECONDS = 45;
+const ROC_REMINDER_SECONDS = 45 * 60;
+function pheaCountdownAt(eventTime, nowMs) {
+  const start = Date.parse(eventTime || "");
+  if (!Number.isFinite(start)) return null;
+  const elapsed = Math.max(0,Math.floor((nowMs-start)/1000));
+  if (elapsed < PHEA_ACTIVATION_SECONDS) {
+    return {elapsed,remaining:PHEA_ACTIVATION_SECONDS-elapsed,phase:"Intubation countdown",color:elapsed>=PHEA_WARNING_SECONDS?"amber":"green",reminders:0};
+  }
+  const sinceActivation = elapsed-PHEA_ACTIVATION_SECONDS;
+  const reminders = Math.floor(sinceActivation/ROC_REMINDER_SECONDS);
+  const remaining = ROC_REMINDER_SECONDS-(sinceActivation%ROC_REMINDER_SECONDS);
+  const justDue = reminders>0 && sinceActivation%ROC_REMINDER_SECONDS<5;
+  return {elapsed,remaining,phase:justDue?"ROC top-up reminder":sinceActivation<5?"60s elapsed · ROC reminder":"ROC top-up countdown",color:justDue||remaining<=300?"red":remaining<=600?"amber":"green",reminders};
+}
+function formatPheaCountdown(seconds) {
+  return String(Math.floor(seconds/60)).padStart(2,"0")+":"+String(seconds%60).padStart(2,"0");
+}
+function updatePheaButton() {
+  const btn = $("pheaButton");
+  if (!btn) return;
+  const entry = getCompletions().PHEA;
+  const nowMs = Date.now();
+  const display = pheaCountdownAt(entry?.event_time,nowMs);
+  if (!entry || !display) {
+    state.pheaPrevious = null;
+    btn.className = "phea-button";
+    btn.removeAttribute("aria-disabled");
+    $("pheaDetail").textContent = "Record PHEA drugs";
+    $("pheaCountdown").textContent = "";
+    $("pheaPhase").textContent = "";
+    return;
+  }
+  btn.className = "phea-button phea-"+display.color;
+  btn.setAttribute("aria-disabled","true");
+  $("pheaDetail").textContent = "Recorded "+(entry.time||formatTime(new Date(entry.event_time)))+" · locked";
+  $("pheaCountdown").textContent = formatPheaCountdown(display.remaining);
+  $("pheaPhase").textContent = display.phase;
+  const key = getOrganisation()+"|"+getUserName()+"|"+entry.event_time;
+  const prev = state.pheaPrevious;
+  // Foreground crossing alerts only; do not replay old alerts when reopening.
+  if (prev && prev.key===key && nowMs>=prev.nowMs && nowMs-prev.nowMs<=5000 && display.elapsed>=prev.elapsed) {
+    if (prev.elapsed<PHEA_ACTIVATION_SECONDS && display.elapsed>=PHEA_ACTIVATION_SECONDS) vibrate([180,100,180,100,180]);
+    else if (prev.elapsed<PHEA_WARNING_SECONDS && display.elapsed>=PHEA_WARNING_SECONDS) vibrate([120,60,120]);
+    else if (display.reminders>prev.reminders) vibrate([200,100,200,100,200]);
+  }
+  state.pheaPrevious = {key,nowMs,elapsed:display.elapsed,reminders:display.reminders};
 }
 
 function handleTimerEvent(payload) {
@@ -536,7 +599,7 @@ function renderHistory() {
   el.innerHTML = h.map(item => `<div class="history-item"><strong>${escapeHtml(item.event_time_local || "")}</strong> ${escapeHtml(item.note || item.event_type || "")}<br><span class="small">${escapeHtml(item.event_category || "")} · ${escapeHtml(item.organisation || "")} / ${escapeHtml(item.user || "")} · ${escapeHtml(item.sync_status || "sent")}</span></div>`).join("");
 }
 
-function renderAll() { renderTimeline(); renderCounts(); renderHistory(); updateSceneTimer(); }
+function renderAll() { renderTimeline(); renderCounts(); renderHistory(); updateSceneTimer(); updatePheaButton(); }
 
 async function chooseMobileCallsign(label) {
   const selected = label === "Personal"
@@ -696,6 +759,7 @@ function bindEvents() {
     $("manualNote").value = "";
     showManual(false);
   });
+  $("pheaButton").addEventListener("click", () => postTimestamp(buildPayload({eventType:"PHEA", note:"PHEA", category:"intervention"})));
   $("interventionButton").addEventListener("click", () => openModal("intervention"));
   $("drugButton").addEventListener("click", () => openModal("drug"));
   $("modalClose").addEventListener("click", closeModal);
