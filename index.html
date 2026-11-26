@@ -82,7 +82,7 @@ textarea{min-height:78px;resize:vertical}
 <body>
 <main>
 <header>
-  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.3.0-rc5 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
+  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.3.0-rc6 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
   <div class="clock"><strong id="clockTime">--:--:--</strong><span id="clockDate">--</span></div>
 </header>
 
@@ -151,7 +151,7 @@ textarea{min-height:78px;resize:vertical}
 </div>
 
 <script>
-const APP_VERSION = "1.3.0-rc5";
+const APP_VERSION = "1.3.0-rc6";
 const DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
 const DEFAULT_ORGANISATION = "Magpas";
 const DEFAULT_USER = "";
@@ -230,6 +230,16 @@ function getCompletions() { return JSON.parse(localStorage.getItem("timestamp_co
 function setCompletions(obj) { localStorage.setItem("timestamp_completions", JSON.stringify(obj)); }
 function getHistory() { return JSON.parse(localStorage.getItem("timestamp_history") || "[]"); }
 function setHistory(arr) { localStorage.setItem("timestamp_history", JSON.stringify(arr.slice(0, 100))); }
+function getPendingClear() { return JSON.parse(localStorage.getItem("timestamp_pending_clear") || "null"); }
+function setPendingClear(payload) { if (payload) localStorage.setItem("timestamp_pending_clear",JSON.stringify(payload)); else localStorage.removeItem("timestamp_pending_clear"); }
+function clearLocalEpisode() {
+  localStorage.removeItem("timestamp_completions");
+  localStorage.removeItem("timestamp_scene_start");
+  localStorage.removeItem("timestamp_scene_stop");
+  localStorage.removeItem("timestamp_session_id");
+  state.sceneAlertLevel = 0;
+  state.pheaPrevious = null;
+}
 function getPendingQueue() { return JSON.parse(localStorage.getItem("timestamp_pending_queue") || "[]"); }
 function setPendingQueue(queue) { localStorage.setItem("timestamp_pending_queue", JSON.stringify(queue)); }
 function makeLocalId() { return "local-" + Date.now() + "-" + Math.random().toString(36).slice(2,10); }
@@ -242,6 +252,7 @@ function loadSettings() {
   if (!$("userName").value.trim()) $("setupDetails").open = true;
 }
 function saveSettings() {
+  if (getPendingClear()) { setStatus("Wait for Clear confirmation before changing team setup.", "warn"); return; }
   const org = $("organisation").value.trim() || DEFAULT_ORGANISATION;
   const user = getUserName(); // Team is chosen at Mobile, not edited in settings.
   const operator = $("operatorName").value.trim();
@@ -303,6 +314,7 @@ function blockDuplicateMilestone(payload) {
 }
 
 async function postTimestamp(payload, markComplete = true) {
+  if (getPendingClear()) { setStatus("Clear awaiting server confirmation. Please synchronise before starting another job.", "warn"); return false; }
   // Check before history, queue, timer, or backend submission: a second tap is inert.
   if (blockDuplicateMilestone(payload)) return false;
   if (!payload.user) { setStatus("Select a team callsign in User setup before logging.", "warn"); $("setupDetails").open = true; return false; }
@@ -420,20 +432,26 @@ async function syncPending() {
   state.syncInFlight = true;
   const still = [];
   try {
-    for (const item of q) {
+    for (let i=0;i<q.length;i++) {
+      const item=q[i];
       try {
         await fetch(getEndpoint(), { method:"POST", mode:"no-cors", headers:{"Content-Type":"application/json"}, body:JSON.stringify({...item, sync_status:"submitted"}) });
         markHistorySubmitted(item.local_id);
-      } catch (err) { still.push(item); }
+        // An opaque POST is not acknowledgement. Keep Clear queued until
+        // the shared episode is confirmed closed. Retry with the same ID.
+        if (item.event_type === "CLEAR" && getPendingClear()?.local_id === item.local_id) { still.push(...q.slice(i)); break; }
+      } catch (err) { still.push(...q.slice(i)); break; }
     }
   } finally {
     // Preserve entries added by button presses while asynchronous POSTs run.
     const attempted = new Set(q.map(item => item.local_id));
     const newlyQueued = getPendingQueue().filter(item => !attempted.has(item.local_id));
-    setPendingQueue(still.concat(newlyQueued));
+    const currentClear=getPendingClear();
+    setPendingQueue(still.concat(newlyQueued).filter(x=>x.event_type!=="CLEAR" || x.local_id===currentClear?.local_id || !q.some(y=>y.local_id===x.local_id && y.event_type==="CLEAR" && y.local_id===state.lastConfirmedClearId)));
     state.syncInFlight = false;
     renderHistory();
     updateSyncStatus();
+    if (getPendingClear()) { setStatus("Clear requested · awaiting server confirmation.", "warn"); return; }
     setStatus(still.length || newlyQueued.length
       ? `${still.length + newlyQueued.length} pending sync. Will retry.`
       : "Upload submitted; checking shared episode.",
@@ -458,7 +476,7 @@ async function pullActiveEpisode(showStatus = false) {
     state.appliedPullSequence = pullSequence;
     applyActiveEpisode(data);
     state.lastPullAt = Date.now();
-    if (showStatus) setStatus("Shared episode state loaded.", "ok");
+    if (showStatus && !getPendingClear()) setStatus("Shared episode state loaded.", "ok");
   } catch (err) {
     if (showStatus) setStatus("Could not load shared state: " + err.message, "warn");
   }
@@ -473,6 +491,34 @@ function localEpisodeEvent(type, session) {
     Number.isFinite(Date.parse(x.event_time || "")));
 }
 function applyActiveEpisode(data) {
+  const clearing = getPendingClear();
+  if (clearing && clearing.organisation===getOrganisation() && canonicalTeam(clearing.team_id || clearing.user)===getUserName()) {
+    const serverTime=Date.parse(data?.last_event_time || "");
+    const clearTime=Date.parse(clearing.event_time || "");
+    const confirmed=data?.status==="cleared" && Number.isFinite(serverTime) && Number.isFinite(clearTime) && serverTime>=clearTime;
+    const newerSession=data?.status==="active" && clearing.session_id && data.session_id && clearing.session_id!==data.session_id;
+    if (confirmed || newerSession) {
+      state.lastConfirmedClearId=clearing.local_id;
+      setPendingQueue(getPendingQueue().filter(x=>x.local_id!==clearing.local_id));
+      setHistory(getHistory().map(x=>x.local_id===clearing.local_id?{...x,sync_status:confirmed?"confirmed":"superseded — not confirmed"}:x));
+      setPendingClear(null);
+      clearLocalEpisode();
+      if (confirmed) {
+        renderAll();
+        setStatus("Clear confirmed by server. Available for next job.", "ok");
+        const dbg=$("activeEpisodeDebug"); if(dbg) dbg.textContent="Shared: cleared · ready for next job";
+        return;
+      }
+      setStatus("A different shared job is active; previous Clear was not confirmed. Check the episode before continuing.", "warn");
+    } else {
+      // An old active/empty snapshot cannot resurrect either timer.
+      clearLocalEpisode();
+      renderAll();
+      setStatus("Clear requested · awaiting server confirmation.", "warn");
+      const dbg=$("activeEpisodeDebug"); if(dbg) dbg.textContent="Shared: awaiting Clear confirmation";
+      return;
+    }
+  }
   if (data && data.status === "cleared") {
     // Do not erase a new locally queued episode because a poll returned the prior clear.
     const clearedAt = Date.parse(data.last_event_time || "");
@@ -559,6 +605,7 @@ function applyActiveEpisode(data) {
 function updateSyncStatus() {
   const el = $("syncStatus"); if (!el) return;
   const count = getPendingQueue().length;
+  if (getPendingClear()) { el.className="sync-status warn"; el.textContent="Clear awaiting server confirmation"+(!navigator.onLine?" · offline":""); return; }
   const pulled = state.lastPullAt ? ` · shared ${Math.round((Date.now() - state.lastPullAt) / 1000)}s ago` : "";
   if (!navigator.onLine) { el.className = "sync-status bad"; el.textContent = count ? `Offline · ${count} pending` : "Offline"; }
   else if (count) { el.className = "sync-status warn"; el.textContent = `Online · ${count} pending sync${pulled}`; }
@@ -606,6 +653,7 @@ function renderHistory() {
 function renderAll() { renderTimeline(); renderCounts(); renderHistory(); updateSceneTimer(); updatePheaButton(); }
 
 async function chooseMobileCallsign(label) {
+  if (getPendingClear()) { closeModal(); setStatus("Clear awaiting server confirmation. Please synchronise before starting another job.", "warn"); return; }
   const selected = label === "Personal"
     ? (localStorage.getItem("timestamp_personal_callsign") || "").trim()
     : canonicalTeam(label);
@@ -724,17 +772,25 @@ function startVoice() { if (!state.recognition) { setStatus("Voice unavailable. 
 function showManual(show) { $("manualCard").style.display = show ? "block" : "none"; if (show) $("manualNote").focus(); }
 
 async function clearEpisode() {
-  const ok = confirm("End patient episode?\n\nThis will clear the active screen and make you available for the next job.\n\nThe episode remains available in Output for HEMSbase / PHEMnet entry.");
+  if (getPendingClear()) { await syncPending(); await pullActiveEpisode(false); return; }
+  if (!getUserName()) { setStatus("No team selected.", "warn"); return; }
+  if (!getSessionId()) {
+    await syncPending(); await pullActiveEpisode(false);
+    if (!getSessionId()) { setStatus("No confirmed shared episode to clear. Check sync and try again.", "warn"); return; }
+  }
+  const ok = confirm("End patient episode?\n\nThis will stop both timers immediately. The job is closed on the server when synchronisation confirms Clear.");
   if (!ok) return;
-  const payload = buildPayload({eventType:"CLEAR", note:"Patient episode cleared", category:"job"});
-  await postTimestamp(payload, false);
-  localStorage.removeItem("timestamp_completions");
-  localStorage.removeItem("timestamp_history");
-  localStorage.removeItem("timestamp_scene_start");
-  localStorage.removeItem("timestamp_scene_stop");
-  localStorage.removeItem("timestamp_session_id");
+  const payload=buildPayload({eventType:"CLEAR",note:"Patient episode cleared",category:"job"});
+  state.localRevision++;
+  // Persist the closure request before removing the active UI.
+  saveHistory(payload);
+  enqueuePending(payload);
+  setPendingClear(payload);
+  clearLocalEpisode();
   renderAll();
-  setStatus("Clear. Available for next job. Episode remains in Output.", "ok");
+  updateSyncStatus();
+  setStatus("Clear requested · awaiting server confirmation.", "warn");
+  await syncPending();
   await pullActiveEpisode(false);
 }
 
@@ -775,6 +831,7 @@ function bindEvents() {
 
 function init() {
   loadSettings();
+  if (getPendingClear()) clearLocalEpisode();
   updateClock();
   setInterval(updateClock, 1000);
   renderAll();
