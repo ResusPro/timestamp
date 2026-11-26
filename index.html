@@ -39,11 +39,13 @@ button:active{transform:translateY(1px)}
 .timeline-btn.done{background:#244635;color:#e8fff0}
 .timeline-btn.done::after{content:"✓";position:absolute;top:10px;right:12px;color:var(--accent);font-size:1.2rem}
 .timeline-btn.done .time{color:#d8ffe8}
-.phea-button{width:100%;margin-top:10px;text-align:left;min-height:64px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px}
+.phea-button{width:100%;margin-top:10px;text-align:center;min-height:64px;display:grid;grid-template-columns:minmax(0,1fr);justify-items:center;align-items:center;gap:5px}
+.phea-button .phea-timer-content{display:none}
+.phea-button[aria-disabled="true"] .phea-timer-content{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:5px 10px}
 .phea-button .phea-label{display:block;font-size:1.05rem;font-weight:900}
 .phea-button .phea-detail{display:block;font-size:.78rem;color:#e1eaf2;margin-top:3px}
-.phea-button .phea-countdown{text-align:right;font-variant-numeric:tabular-nums;font-size:1.55rem;font-weight:950;line-height:1.15}
-.phea-button .phea-phase{display:block;font-size:.72rem;font-weight:800;text-align:right;color:#f3f7fb}
+.phea-button .phea-countdown{text-align:center;font-variant-numeric:tabular-nums;font-size:1.55rem;font-weight:950;line-height:1.15}
+.phea-button .phea-phase{display:block;font-size:.72rem;font-weight:800;text-align:center;color:#f3f7fb}
 .phea-button.phea-green{--phea-fill:#246342;--phea-edge:#53d48a}
 .phea-button.phea-amber{--phea-fill:#805316;--phea-edge:#ffc35c}
 .phea-button.phea-red{--phea-fill:#8a3333;--phea-edge:#ff8181}
@@ -82,7 +84,7 @@ textarea{min-height:78px;resize:vertical}
 <body>
 <main>
 <header>
-  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.3.0-rc6 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
+  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.3.0-rc7 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
   <div class="clock"><strong id="clockTime">--:--:--</strong><span id="clockDate">--</span></div>
 </header>
 
@@ -98,7 +100,7 @@ textarea{min-height:78px;resize:vertical}
 
   <button id="pheaButton" class="phea-button" type="button">
     <span><span class="phea-label">PHEA</span><span class="phea-detail" id="pheaDetail">Record PHEA drugs</span></span>
-    <span><span class="phea-countdown" id="pheaCountdown"></span><span class="phea-phase" id="pheaPhase"></span></span>
+    <span class="phea-timer-content"><span class="phea-countdown" id="pheaCountdown"></span><span class="phea-phase" id="pheaPhase"></span></span>
   </button>
   <div class="action-row">
     <button id="interventionButton">Intervention <span class="count" id="interventionCount">0 logged</span></button>
@@ -151,7 +153,7 @@ textarea{min-height:78px;resize:vertical}
 </div>
 
 <script>
-const APP_VERSION = "1.3.0-rc6";
+const APP_VERSION = "1.3.0-rc7";
 const DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
 const DEFAULT_ORGANISATION = "Magpas";
 const DEFAULT_USER = "";
@@ -632,7 +634,7 @@ function renderTimelineGroup(grid, events) {
       btn.title = `Recorded at ${done[ev.type].time || "previously"} — timestamp locked`;
       btn.setAttribute("aria-disabled", "true");
     }
-    if (ev.full) btn.style.gridColumn = "1 / -1";
+    if (ev.full) { btn.style.gridColumn = "1 / -1"; btn.style.textAlign = "center"; }
     btn.innerHTML = `<span class="label">${escapeHtml(ev.label)}</span><span class="time">${done[ev.type]?.time || ""}</span>`;
     btn.addEventListener("click", () => ev.type === "MOBILE" ? openModal("callsign") : postTimestamp(buildPayload({eventType:ev.type, note:ev.label, category:"timeline"})));
     grid.appendChild(btn);
