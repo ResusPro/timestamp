@@ -33,7 +33,7 @@ h1{font-size:1.35rem;margin:0 0 2px;line-height:1.1}
 button{appearance:none;border:0;border-radius:15px;padding:12px;min-height:56px;color:var(--text);background:var(--panel2);font-size:.98rem;font-weight:850;box-shadow:inset 0 0 0 1px var(--border);touch-action:manipulation}
 button:active{transform:translateY(1px)}
 .timeline-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.timeline-btn{text-align:left;position:relative;min-height:62px}
+.timeline-btn{text-align:center;position:relative;min-height:62px}
 .timeline-btn .label{display:block;line-height:1.1}
 .timeline-btn .time{display:block;color:var(--muted);font-size:.83rem;margin-top:5px;font-variant-numeric:tabular-nums}
 .timeline-btn.done{background:#244635;color:#e8fff0}
@@ -76,7 +76,7 @@ textarea{min-height:78px;resize:vertical}
 .modal-header h2{font-size:1.15rem;margin:0}
 .modal-close{min-height:44px;padding:8px 14px;background:var(--danger)}
 .list-grid{display:grid;grid-template-columns:1fr;gap:8px}
-.list-grid button{text-align:left;min-height:54px}
+.list-grid button{text-align:center;min-height:54px}
 .list-grid button.done{background:#244635;color:#e8fff0}
 .list-grid button .time{display:block;color:var(--muted);font-size:.82rem;margin-top:3px}
 .other-panel{display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
@@ -87,7 +87,7 @@ textarea{min-height:78px;resize:vertical}
 <body>
 <main>
 <header>
-  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.3.0-rc8 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
+  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.3.0-rc9 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
   <div class="clock"><strong id="clockTime">--:--:--</strong><span id="clockDate">--</span></div>
 </header>
 
@@ -156,7 +156,7 @@ textarea{min-height:78px;resize:vertical}
 </div>
 
 <script>
-const APP_VERSION = "1.3.0-rc8";
+const APP_VERSION = "1.3.0-rc9";
 const DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
 const DEFAULT_ORGANISATION = "Magpas";
 const DEFAULT_USER = "";
