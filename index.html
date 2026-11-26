@@ -44,9 +44,11 @@ button:active{transform:translateY(1px)}
 .phea-button .phea-detail{display:block;font-size:.78rem;color:#e1eaf2;margin-top:3px}
 .phea-button .phea-countdown{text-align:right;font-variant-numeric:tabular-nums;font-size:1.55rem;font-weight:950;line-height:1.15}
 .phea-button .phea-phase{display:block;font-size:.72rem;font-weight:800;text-align:right;color:#f3f7fb}
-.phea-button.phea-green{background:#244f38}
-.phea-button.phea-amber{background:#805316}
-.phea-button.phea-red{background:#8a3333}
+.phea-button.phea-green{--phea-fill:#246342;--phea-edge:#53d48a}
+.phea-button.phea-amber{--phea-fill:#805316;--phea-edge:#ffc35c}
+.phea-button.phea-red{--phea-fill:#8a3333;--phea-edge:#ff8181}
+.phea-button.phea-green,.phea-button.phea-amber,.phea-button.phea-red{background:linear-gradient(to right,var(--phea-fill) 0%,var(--phea-fill) var(--phea-progress,100%),#10263f var(--phea-progress,100%),#10263f 100%);box-shadow:inset 0 0 0 2px var(--phea-edge)}
+.phea-button.phea-green .phea-countdown,.phea-button.phea-amber .phea-countdown,.phea-button.phea-red .phea-countdown{color:#fff}
 .action-row,.job-row,.row{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}
 .danger{background:var(--danger)!important}
 .secondary{background:#1b426d!important}
@@ -80,7 +82,7 @@ textarea{min-height:78px;resize:vertical}
 <body>
 <main>
 <header>
-  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.3.0-rc4 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
+  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.3.0-rc5 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
   <div class="clock"><strong id="clockTime">--:--:--</strong><span id="clockDate">--</span></div>
 </header>
 
@@ -149,7 +151,7 @@ textarea{min-height:78px;resize:vertical}
 </div>
 
 <script>
-const APP_VERSION = "1.3.0-rc4";
+const APP_VERSION = "1.3.0-rc5";
 const DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
 const DEFAULT_ORGANISATION = "Magpas";
 const DEFAULT_USER = "";
@@ -332,13 +334,13 @@ function pheaCountdownAt(eventTime, nowMs) {
   if (!Number.isFinite(start)) return null;
   const elapsed = Math.max(0,Math.floor((nowMs-start)/1000));
   if (elapsed < PHEA_ACTIVATION_SECONDS) {
-    return {elapsed,remaining:PHEA_ACTIVATION_SECONDS-elapsed,phase:"Intubation countdown",color:elapsed>=PHEA_WARNING_SECONDS?"amber":"green",reminders:0};
+    return {elapsed,remaining:PHEA_ACTIVATION_SECONDS-elapsed,phase:"Intubation countdown",color:elapsed>=PHEA_WARNING_SECONDS?"amber":"green",reminders:0,fraction:(PHEA_ACTIVATION_SECONDS-elapsed)/PHEA_ACTIVATION_SECONDS};
   }
   const sinceActivation = elapsed-PHEA_ACTIVATION_SECONDS;
   const reminders = Math.floor(sinceActivation/ROC_REMINDER_SECONDS);
   const remaining = ROC_REMINDER_SECONDS-(sinceActivation%ROC_REMINDER_SECONDS);
   const justDue = reminders>0 && sinceActivation%ROC_REMINDER_SECONDS<5;
-  return {elapsed,remaining,phase:justDue?"ROC top-up reminder":sinceActivation<5?"60s elapsed · ROC reminder":"ROC top-up countdown",color:justDue||remaining<=300?"red":remaining<=600?"amber":"green",reminders};
+  return {elapsed,remaining,phase:justDue?"ROC top-up reminder":sinceActivation<5?"60s elapsed · ROC reminder":"ROC top-up countdown",color:justDue||remaining<=300?"red":remaining<=600?"amber":"green",reminders,fraction:remaining/ROC_REMINDER_SECONDS};
 }
 function formatPheaCountdown(seconds) {
   return String(Math.floor(seconds/60)).padStart(2,"0")+":"+String(seconds%60).padStart(2,"0");
@@ -352,6 +354,7 @@ function updatePheaButton() {
   if (!entry || !display) {
     state.pheaPrevious = null;
     btn.className = "phea-button";
+    btn.style.removeProperty("--phea-progress");
     btn.removeAttribute("aria-disabled");
     $("pheaDetail").textContent = "Record PHEA drugs";
     $("pheaCountdown").textContent = "";
@@ -359,6 +362,7 @@ function updatePheaButton() {
     return;
   }
   btn.className = "phea-button phea-"+display.color;
+  btn.style.setProperty("--phea-progress", (Math.max(0,Math.min(1,display.fraction))*100).toFixed(3)+"%");
   btn.setAttribute("aria-disabled","true");
   $("pheaDetail").textContent = "Recorded "+(entry.time||formatTime(new Date(entry.event_time)))+" · locked";
   $("pheaCountdown").textContent = formatPheaCountdown(display.remaining);
