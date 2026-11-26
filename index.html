@@ -87,7 +87,7 @@ textarea{min-height:78px;resize:vertical}
 <body>
 <main>
 <header>
-  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.3.0-rc11 · <a id="outputLink" class="header-link" target="_blank" rel="noopener noreferrer" aria-disabled="true">Output unavailable</a></div></div>
+  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.4.0-rc1 · <a id="outputLink" class="header-link" target="_blank" rel="noopener noreferrer" aria-disabled="true">Output unavailable</a></div></div>
   <div class="clock"><strong id="clockTime">--:--:--</strong><span id="clockDate">--</span></div>
 </header>
 
@@ -156,7 +156,7 @@ textarea{min-height:78px;resize:vertical}
 </div>
 
 <script>
-const APP_VERSION = "1.3.0-rc11";
+const APP_VERSION = "1.4.0-rc1";
 const DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
 const DEFAULT_ORGANISATION = "";
 const DEFAULT_USER = "";
@@ -219,16 +219,58 @@ function updateClock() { $("clockTime").textContent = formatTime(); $("clockDate
 function setStatus(message, kind = "") { const el = $("status"); el.className = "status" + (kind ? " " + kind : ""); el.textContent = message; }
 function getEndpoint() { return DEFAULT_ENDPOINT_URL.trim(); }
 function getOrganisation() { return (localStorage.getItem("timestamp_organisation") || DEFAULT_ORGANISATION).trim(); }
-// Existing verified organisation output tabs. The workbook retains its Google
-// access controls. An unfamiliar organisation must never default to Magpas.
-const OUTPUT_WORKBOOK_URL = "https://docs.google.com/spreadsheets/d/1Sb3ln-FMnkSAOIx-YvVBjOerpPiO0WpfEWF7XrfJrdA/edit";
-const APPROVED_ORGANISATIONS = Object.freeze({"magpas":"Magpas","dsaa":"DSAA","timestamp test":"Timestamp Test"});
-const OUTPUT_TAB_IDS = Object.freeze({"magpas":"1202462741","timestamp test":"659070164","dsaa":"1111910216"});
-function approvedOrganisation(value) { const key=String(value||"").trim().toLowerCase(); return Object.hasOwn(APPROVED_ORGANISATIONS,key)?APPROVED_ORGANISATIONS[key]:""; }
+// Only independent output URLs returned by the backend are accepted.
+// Keep the known legacy organisation names for offline operation, never the
+// master workbook URL. The server remains the authority for enabled teams.
+const LEGACY_DIRECTORY = [{name:"Magpas",output_url:null},{name:"DSAA",output_url:null},{name:"Timestamp Test",output_url:null}];
+function cleanDirectory(rows) {
+  if(!Array.isArray(rows))return null;
+  const out=[], seen=new Set();
+  for(const row of rows){
+    const name=String(row?.name||"").trim(), key=name.toLowerCase();
+    if(!/^[A-Za-z0-9][A-Za-z0-9 _-]{0,59}$/.test(name)||seen.has(key))return null;
+    const url=String(row.output_url||"");
+    const valid=/^https:\/\/docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]+\/edit$/.test(url);
+    out.push({name,output_url:valid?url:null});
+    seen.add(key);
+  }
+  return out;
+}
+let organisationDirectory = LEGACY_DIRECTORY;
+function restoreOrganisationDirectory() {
+  try {
+    const cached=cleanDirectory(JSON.parse(localStorage.getItem("timestamp_org_directory_v14")||"null"));
+    if(cached)organisationDirectory=cached;
+  }catch{}
+}
+function approvedOrganisation(value) {
+  const key=String(value||"").trim().toLowerCase();
+  return organisationDirectory.find(r=>r.name.toLowerCase()===key)?.name||"";
+}
 function outputDestination(organisation) {
   const key=String(organisation||"").trim().toLowerCase();
-  const gid=Object.hasOwn(OUTPUT_TAB_IDS,key)?OUTPUT_TAB_IDS[key]:null;
-  return {url:gid?OUTPUT_WORKBOOK_URL+"#gid="+gid:null,matched:!!gid};
+  const url=organisationDirectory.find(r=>r.name.toLowerCase()===key)?.output_url||null;
+  return {url,matched:!!url};
+}
+function renderOrganisationChoices() {
+  const select=$("organisation");
+  if(!select)return;
+  const chosen=select.value||getOrganisation();
+  select.replaceChildren();
+  const placeholder=document.createElement("option");placeholder.value="";placeholder.textContent="Select organisation";select.appendChild(placeholder);
+  for(const entry of organisationDirectory){const option=document.createElement("option");option.value=entry.name;option.textContent=entry.name;select.appendChild(option);}
+  select.value=approvedOrganisation(chosen);
+}
+async function refreshOrganisationDirectory() {
+  if(!navigator.onLine)return;
+  try{
+    const res=await fetch(getEndpoint()+"?action=organisationConfig",{cache:"no-store"});
+    const data=await res.json(), rows=cleanDirectory(data.organisations);
+    if(data.status!=="ok"||!rows)return;
+    organisationDirectory=rows;
+    localStorage.setItem("timestamp_org_directory_v14",JSON.stringify(rows));
+    renderOrganisationChoices();updateOutputLink();
+  }catch{/* Keep last known configuration offline. */}
 }
 function updateOutputLink() {
   const link=$("outputLink");
@@ -272,6 +314,8 @@ function setPendingQueue(queue) { localStorage.setItem("timestamp_pending_queue"
 function makeLocalId() { return "local-" + Date.now() + "-" + Math.random().toString(36).slice(2,10); }
 
 function loadSettings() {
+  restoreOrganisationDirectory();
+  renderOrganisationChoices();
   updateOutputLink();
   $("organisation").value = approvedOrganisation(getOrganisation());
   if (getOrganisation() && !approvedOrganisation(getOrganisation())) { $("setupDetails").open=true; setStatus("Previous organisation is not approved. Contact an administrator before logging.", "warn"); }
@@ -868,6 +912,7 @@ function bindEvents() {
 
 function init() {
   loadSettings();
+  refreshOrganisationDirectory();
   if (getPendingClear()) clearLocalEpisode();
   updateClock();
   setInterval(updateClock, 1000);
@@ -878,11 +923,12 @@ function init() {
   updateSyncStatus();
   syncPending();
   pullActiveEpisode(false);
-  window.addEventListener("online", () => { updateSyncStatus(); syncPending(); pullActiveEpisode(false); });
+  window.addEventListener("online", () => { refreshOrganisationDirectory(); updateSyncStatus(); syncPending(); pullActiveEpisode(false); });
   window.addEventListener("offline", updateSyncStatus);
-  window.addEventListener("focus", () => pullActiveEpisode(false));
+  window.addEventListener("focus", () => { refreshOrganisationDirectory(); pullActiveEpisode(false); });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) pullActiveEpisode(false); });
   setInterval(syncPending, 30000);
+  setInterval(refreshOrganisationDirectory, 300000);
   setInterval(() => { if (!document.hidden) pullActiveEpisode(false); }, 15000);
   if (!approvedOrganisation(getOrganisation())) setStatus("Choose an approved organisation in User setup before logging.", "warn");
   else if (!getUserName()) setStatus("Press Mobile to choose your callsign before the first job.", "warn");
