@@ -1,4 +1,4 @@
-const CACHE_NAME = "timestamp-logger-v1-3-0-rc6";
+const CACHE_NAME = "timestamp-logger-v1-3-0-rc7";
 const APP_SHELL = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", event => {
