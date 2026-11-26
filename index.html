@@ -72,7 +72,7 @@ textarea{min-height:78px;resize:vertical}
 <body>
 <main>
 <header>
-  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.3.0-rc1 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
+  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.3.0-rc2 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
   <div class="clock"><strong id="clockTime">--:--:--</strong><span id="clockDate">--</span></div>
 </header>
 
@@ -137,7 +137,7 @@ textarea{min-height:78px;resize:vertical}
 </div>
 
 <script>
-const APP_VERSION = "1.3.0-rc1";
+const APP_VERSION = "1.3.0-rc2";
 const DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
 const DEFAULT_ORGANISATION = "Magpas";
 const DEFAULT_USER = "";
@@ -193,7 +193,7 @@ const DRUGS = [
 ];
 
 const $ = id => document.getElementById(id);
-const state = { recognition:null, modalType:null, sceneAlertLevel:0, lastPullAt:0 };
+const state = { recognition:null, modalType:null, sceneAlertLevel:0, lastPullAt:0, pullSequence:0, appliedPullSequence:0 };
 
 function formatTime(date = new Date()) { return new Intl.DateTimeFormat("en-GB", {hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false}).format(date); }
 function formatDate(date = new Date()) { return new Intl.DateTimeFormat("en-GB", {weekday:"short", day:"2-digit", month:"short"}).format(date); }
@@ -342,7 +342,7 @@ function updateSceneTimer() {
 
 function enqueuePending(payload) { const q = getPendingQueue(); if (!q.some(x => x.local_id === payload.local_id)) { q.push(payload); setPendingQueue(q); } }
 function saveHistory(payload) { const h = getHistory(); h.unshift(payload); setHistory(h); }
-function markHistorySent(localId) { setHistory(getHistory().map(x => x.local_id === localId ? {...x, sync_status:"sent"} : x)); }
+function markHistorySubmitted(localId) { setHistory(getHistory().map(x => x.local_id === localId && x.sync_status !== "confirmed" && x.sync_status !== "not accepted — original retained" ? {...x, sync_status:"submitted — unconfirmed"} : x)); }
 
 async function syncPending() {
   if (state.syncInFlight) return;
@@ -354,8 +354,8 @@ async function syncPending() {
   try {
     for (const item of q) {
       try {
-        await fetch(getEndpoint(), { method:"POST", mode:"no-cors", headers:{"Content-Type":"application/json"}, body:JSON.stringify({...item, sync_status:"sent"}) });
-        markHistorySent(item.local_id);
+        await fetch(getEndpoint(), { method:"POST", mode:"no-cors", headers:{"Content-Type":"application/json"}, body:JSON.stringify({...item, sync_status:"submitted"}) });
+        markHistorySubmitted(item.local_id);
       } catch (err) { still.push(item); }
     }
   } finally {
@@ -379,11 +379,14 @@ async function pullActiveEpisode(showStatus = false) {
   const user = getUserName();
   if (!org || !user) return;
   const requestedIdentity = org + "|" + user;
+  const pullSequence = ++state.pullSequence;
   const url = getEndpoint() + `?action=activeEpisode&organisation=${encodeURIComponent(org)}&user=${encodeURIComponent(user)}&team_id=${encodeURIComponent(user)}`;
   try {
     const res = await fetch(url, { method:"GET", cache:"no-store" });
     const data = await res.json();
-    if (requestedIdentity !== getOrganisation() + "|" + getUserName()) return;
+    if (requestedIdentity !== getOrganisation() + "|" + getUserName() || pullSequence < state.appliedPullSequence) return;
+    if (!data || !["active","cleared","none"].includes(data.status)) throw new Error("Invalid shared state");
+    state.appliedPullSequence = pullSequence;
     applyActiveEpisode(data);
     state.lastPullAt = Date.now();
     if (showStatus) setStatus("Shared episode state loaded.", "ok");
@@ -394,6 +397,10 @@ async function pullActiveEpisode(showStatus = false) {
 
 function applyActiveEpisode(data) {
   if (data && data.status === "cleared") {
+    // Do not erase a new locally queued episode because a poll returned the prior clear.
+    const clearedAt = Date.parse(data.last_event_time || "");
+    const hasNewPending = getPendingQueue().some(x => x.organisation === getOrganisation() && canonicalTeam(x.team_id || x.user) === getUserName() && !["CLEAR","JOB_COMPLETE"].includes(x.event_type) && (!Number.isFinite(clearedAt) || Date.parse(x.event_time) > clearedAt));
+    if (hasNewPending) { renderAll(); return; }
     localStorage.removeItem("timestamp_completions");
     localStorage.removeItem("timestamp_scene_start");
     localStorage.removeItem("timestamp_scene_stop");
@@ -420,18 +427,33 @@ function applyActiveEpisode(data) {
   if (data.timer_stop) localStorage.setItem("timestamp_scene_stop", data.timer_stop); else localStorage.removeItem("timestamp_scene_stop");
   const done = getCompletions();
   const timeline = data.timeline || {};
-  Object.keys(timeline).forEach(type => {
-    const ev = timeline[type] || {};
+  const accepted = new Map();
+  const canonicalType = type => ["PHEA_DRUGS","DRUG_PHEA","INTERVENTION_PHEA"].includes(type) ? "PHEA" : type;
+  Object.keys(timeline).forEach(key => {
+    const type = canonicalType(key);
+    const ev = timeline[key] || {};
+    if (!Number.isFinite(Date.parse(ev.event_time || ""))) return;
+    // Prefer the canonical server key if both a legacy alias and the key exist.
+    if (type !== key && timeline[type]) return;
+    accepted.set(type, ev);
     if (!["VOICE_NOTE","MANUAL_NOTE","TEST","CLEAR","JOB_COMPLETE"].includes(type)) {
-      const incomingMs = Date.parse(ev.event_time || "");
-      const storedMs = Date.parse(done[type]?.event_time || "");
-      // Preserve the earliest known write-once event if the backend still exposes
-      // a later duplicate. True multi-device immutability needs a backend guard.
-      if (WRITE_ONCE_TYPES.has(type) && done[type] &&
-          (!Number.isFinite(incomingMs) || (Number.isFinite(storedMs) && storedMs <= incomingMs))) return;
-      done[type] = { time: ev.event_time_local || "", note: ev.note || "", category: ev.event_category || "", event_time: ev.event_time || "", source: ev.source || "", app_version: ev.app_version || "" };
+      // Backend rc2 is authoritative. Never choose a conflicting optimistic local
+      // timestamp simply because its clock reads earlier or later.
+      done[type] = { time: ev.event_time_local || formatTime(new Date(ev.event_time)), note: ev.note || "", category: ev.event_category || "", event_time: ev.event_time, source: ev.source || "", app_version: ev.app_version || "", local_id: ev.local_id || "", sync_status:"confirmed" };
     }
   });
+  // Only matching server event IDs constitute acknowledgement. The active
+  // timeline contains only the latest repeatable event, so earlier repeatable
+  // submissions may remain unconfirmed here even if they reached the sheet.
+  setHistory(getHistory().map(item => {
+    if (item.organisation !== getOrganisation() || canonicalTeam(item.team_id || item.user) !== getUserName()) return item;
+    const type = canonicalType(item.event_type);
+    const ev = accepted.get(type);
+    if (!ev) return item;
+    if (item.local_id && ev.local_id === item.local_id) return {...item, sync_status:"confirmed", session_id:data.session_id || item.session_id};
+    if (item.session_id && item.session_id === data.session_id && WRITE_ONCE_TYPES.has(type) && ev.local_id && item.sync_status !== "confirmed") return {...item, sync_status:"not accepted — original retained"};
+    return item;
+  }));
   setCompletions(done);
   renderAll();
   const dbg = $("activeEpisodeDebug");
@@ -444,7 +466,7 @@ function updateSyncStatus() {
   const pulled = state.lastPullAt ? ` · shared ${Math.round((Date.now() - state.lastPullAt) / 1000)}s ago` : "";
   if (!navigator.onLine) { el.className = "sync-status bad"; el.textContent = count ? `Offline · ${count} pending` : "Offline"; }
   else if (count) { el.className = "sync-status warn"; el.textContent = `Online · ${count} pending sync${pulled}`; }
-  else { el.className = "sync-status ok"; el.textContent = `Online · queue empty; checking shared state${pulled}`; }
+  else { const unconfirmed = getHistory().filter(x => x.organisation === getOrganisation() && canonicalTeam(x.team_id || x.user) === getUserName() && x.sync_status === "submitted — unconfirmed").length; el.className = "sync-status" + (unconfirmed ? " warn" : " ok"); el.textContent = `Online · queue empty${unconfirmed ? ` · ${unconfirmed} unconfirmed` : ""}${pulled}`; }
 }
 
 function vibrate(pattern) { if ("vibrate" in navigator) navigator.vibrate(pattern); }
