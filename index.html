@@ -232,6 +232,8 @@ function getHistory() { return JSON.parse(localStorage.getItem("timestamp_histor
 function setHistory(arr) { localStorage.setItem("timestamp_history", JSON.stringify(arr.slice(0, 100))); }
 function getPendingClear() { return JSON.parse(localStorage.getItem("timestamp_pending_clear") || "null"); }
 function setPendingClear(payload) { if (payload) localStorage.setItem("timestamp_pending_clear",JSON.stringify(payload)); else localStorage.removeItem("timestamp_pending_clear"); }
+function closedSessionKey() { return "timestamp_closed_session:"+getOrganisation()+"|"+getUserName(); }
+function rememberClosedSession(session) { if (session) localStorage.setItem(closedSessionKey(),session); }
 function clearLocalEpisode() {
   localStorage.removeItem("timestamp_completions");
   localStorage.removeItem("timestamp_scene_start");
@@ -446,8 +448,7 @@ async function syncPending() {
     // Preserve entries added by button presses while asynchronous POSTs run.
     const attempted = new Set(q.map(item => item.local_id));
     const newlyQueued = getPendingQueue().filter(item => !attempted.has(item.local_id));
-    const currentClear=getPendingClear();
-    setPendingQueue(still.concat(newlyQueued).filter(x=>x.event_type!=="CLEAR" || x.local_id===currentClear?.local_id || !q.some(y=>y.local_id===x.local_id && y.event_type==="CLEAR" && y.local_id===state.lastConfirmedClearId)));
+    setPendingQueue(still.concat(newlyQueued).filter(x=>x.local_id!==state.lastConfirmedClearId));
     state.syncInFlight = false;
     renderHistory();
     updateSyncStatus();
@@ -476,7 +477,7 @@ async function pullActiveEpisode(showStatus = false) {
     state.appliedPullSequence = pullSequence;
     applyActiveEpisode(data);
     state.lastPullAt = Date.now();
-    if (showStatus && !getPendingClear()) setStatus("Shared episode state loaded.", "ok");
+    if (showStatus && !getPendingClear() && data.status!=="cleared") setStatus("Shared episode state loaded.", "ok");
   } catch (err) {
     if (showStatus) setStatus("Could not load shared state: " + err.message, "warn");
   }
@@ -499,6 +500,7 @@ function applyActiveEpisode(data) {
     const newerSession=data?.status==="active" && clearing.session_id && data.session_id && clearing.session_id!==data.session_id;
     if (confirmed || newerSession) {
       state.lastConfirmedClearId=clearing.local_id;
+      rememberClosedSession(clearing.session_id);
       setPendingQueue(getPendingQueue().filter(x=>x.local_id!==clearing.local_id));
       setHistory(getHistory().map(x=>x.local_id===clearing.local_id?{...x,sync_status:confirmed?"confirmed":"superseded — not confirmed"}:x));
       setPendingClear(null);
@@ -519,11 +521,13 @@ function applyActiveEpisode(data) {
       return;
     }
   }
+  if (data?.status==="active" && data.session_id && data.session_id===localStorage.getItem(closedSessionKey())) return;
   if (data && data.status === "cleared") {
     // Do not erase a new locally queued episode because a poll returned the prior clear.
     const clearedAt = Date.parse(data.last_event_time || "");
     const hasNewPending = getPendingQueue().concat(getHistory()).some(x => x.organisation === getOrganisation() && canonicalTeam(x.team_id || x.user) === getUserName() && !["CLEAR","JOB_COMPLETE"].includes(x.event_type) && ["pending","submitted — unconfirmed","submitted"].includes(x.sync_status) && (!Number.isFinite(clearedAt) || Date.parse(x.event_time) > clearedAt));
     if (hasNewPending) { renderAll(); return; }
+    rememberClosedSession(getSessionId());
     localStorage.removeItem("timestamp_completions");
     localStorage.removeItem("timestamp_scene_start");
     localStorage.removeItem("timestamp_scene_stop");
