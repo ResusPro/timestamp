@@ -41,7 +41,10 @@ button:active{transform:translateY(1px)}
 .timeline-btn.done .time{color:#d8ffe8}
 .phea-button{width:100%;margin-top:10px;text-align:center;min-height:64px;display:grid;grid-template-columns:minmax(0,1fr);justify-items:center;align-items:center;gap:5px}
 .phea-button .phea-timer-content{display:none}
-.phea-button[aria-disabled="true"] .phea-timer-content{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:5px 10px}
+.phea-button[aria-disabled="true"]{grid-template-columns:minmax(0,1fr) minmax(0,1fr);justify-items:stretch;text-align:left;gap:10px}
+.phea-button[aria-disabled="true"] .phea-timer-content{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;min-width:0}
+.phea-button[aria-disabled="true"] .phea-countdown,.phea-button[aria-disabled="true"] .phea-phase{text-align:right}
+.phea-button[aria-disabled="true"] .phea-detail{overflow-wrap:anywhere}
 .phea-button .phea-label{display:block;font-size:1.05rem;font-weight:900}
 .phea-button .phea-detail{display:block;font-size:.78rem;color:#e1eaf2;margin-top:3px}
 .phea-button .phea-countdown{text-align:center;font-variant-numeric:tabular-nums;font-size:1.55rem;font-weight:950;line-height:1.15}
@@ -84,7 +87,7 @@ textarea{min-height:78px;resize:vertical}
 <body>
 <main>
 <header>
-  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.3.0-rc7 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
+  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.3.0-rc8 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
   <div class="clock"><strong id="clockTime">--:--:--</strong><span id="clockDate">--</span></div>
 </header>
 
@@ -153,7 +156,7 @@ textarea{min-height:78px;resize:vertical}
 </div>
 
 <script>
-const APP_VERSION = "1.3.0-rc7";
+const APP_VERSION = "1.3.0-rc8";
 const DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
 const DEFAULT_ORGANISATION = "Magpas";
 const DEFAULT_USER = "";
