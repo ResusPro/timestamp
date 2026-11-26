@@ -72,7 +72,7 @@ textarea{min-height:78px;resize:vertical}
 <body>
 <main>
 <header>
-  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.3.0-rc2 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
+  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.3.0-rc3 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
   <div class="clock"><strong id="clockTime">--:--:--</strong><span id="clockDate">--</span></div>
 </header>
 
@@ -137,7 +137,7 @@ textarea{min-height:78px;resize:vertical}
 </div>
 
 <script>
-const APP_VERSION = "1.3.0-rc2";
+const APP_VERSION = "1.3.0-rc3";
 const DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
 const DEFAULT_ORGANISATION = "Magpas";
 const DEFAULT_USER = "";
@@ -193,7 +193,7 @@ const DRUGS = [
 ];
 
 const $ = id => document.getElementById(id);
-const state = { recognition:null, modalType:null, sceneAlertLevel:0, lastPullAt:0, pullSequence:0, appliedPullSequence:0 };
+const state = { recognition:null, modalType:null, sceneAlertLevel:0, lastPullAt:0, pullSequence:0, appliedPullSequence:0, localRevision:0 };
 
 function formatTime(date = new Date()) { return new Intl.DateTimeFormat("en-GB", {hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false}).format(date); }
 function formatDate(date = new Date()) { return new Intl.DateTimeFormat("en-GB", {weekday:"short", day:"2-digit", month:"short"}).format(date); }
@@ -293,11 +293,12 @@ async function postTimestamp(payload, markComplete = true) {
   // Check before history, queue, timer, or backend submission: a second tap is inert.
   if (blockDuplicateMilestone(payload)) return false;
   if (!payload.user) { setStatus("Select a team callsign in User setup before logging.", "warn"); $("setupDetails").open = true; return false; }
+  state.localRevision++;
   saveHistory(payload);
   enqueuePending(payload);
   if (markComplete && payload.event_type && !["VOICE_NOTE","MANUAL_NOTE","TEST","CLEAR","JOB_COMPLETE"].includes(payload.event_type)) {
     const done = getCompletions();
-    done[payload.event_type] = { time: payload.event_time_local, note: payload.note, category: payload.event_category, event_time: payload.event_time, source: payload.source, app_version: payload.app_version };
+    done[payload.event_type] = { time: payload.event_time_local, note: payload.note, category: payload.event_category, event_time: payload.event_time, source: payload.source, app_version: payload.app_version, local_id:payload.local_id, sync_status:"pending" };
     setCompletions(done);
   }
   handleTimerEvent(payload);
@@ -380,11 +381,12 @@ async function pullActiveEpisode(showStatus = false) {
   if (!org || !user) return;
   const requestedIdentity = org + "|" + user;
   const pullSequence = ++state.pullSequence;
+  const localRevision = state.localRevision;
   const url = getEndpoint() + `?action=activeEpisode&organisation=${encodeURIComponent(org)}&user=${encodeURIComponent(user)}&team_id=${encodeURIComponent(user)}`;
   try {
     const res = await fetch(url, { method:"GET", cache:"no-store" });
     const data = await res.json();
-    if (requestedIdentity !== getOrganisation() + "|" + getUserName() || pullSequence < state.appliedPullSequence) return;
+    if (requestedIdentity !== getOrganisation() + "|" + getUserName() || pullSequence < state.appliedPullSequence || localRevision !== state.localRevision) return;
     if (!data || !["active","cleared","none"].includes(data.status)) throw new Error("Invalid shared state");
     state.appliedPullSequence = pullSequence;
     applyActiveEpisode(data);
@@ -395,11 +397,19 @@ async function pullActiveEpisode(showStatus = false) {
   }
 }
 
+function localEpisodeEvent(type, session) {
+  const entries = getPendingQueue().concat(getHistory());
+  return entries.find(x => x.event_type === type &&
+    x.organisation === getOrganisation() && canonicalTeam(x.team_id || x.user) === getUserName() &&
+    (!x.session_id || x.session_id === session) &&
+    ["pending","submitted — unconfirmed","submitted"].includes(x.sync_status) &&
+    Number.isFinite(Date.parse(x.event_time || "")));
+}
 function applyActiveEpisode(data) {
   if (data && data.status === "cleared") {
     // Do not erase a new locally queued episode because a poll returned the prior clear.
     const clearedAt = Date.parse(data.last_event_time || "");
-    const hasNewPending = getPendingQueue().some(x => x.organisation === getOrganisation() && canonicalTeam(x.team_id || x.user) === getUserName() && !["CLEAR","JOB_COMPLETE"].includes(x.event_type) && (!Number.isFinite(clearedAt) || Date.parse(x.event_time) > clearedAt));
+    const hasNewPending = getPendingQueue().concat(getHistory()).some(x => x.organisation === getOrganisation() && canonicalTeam(x.team_id || x.user) === getUserName() && !["CLEAR","JOB_COMPLETE"].includes(x.event_type) && ["pending","submitted — unconfirmed","submitted"].includes(x.sync_status) && (!Number.isFinite(clearedAt) || Date.parse(x.event_time) > clearedAt));
     if (hasNewPending) { renderAll(); return; }
     localStorage.removeItem("timestamp_completions");
     localStorage.removeItem("timestamp_scene_start");
@@ -419,14 +429,33 @@ function applyActiveEpisode(data) {
   }
   const previousSession = getSessionId();
   // The shared server may have advanced to another job since this device last pulled.
-  if (data.session_id && previousSession && previousSession !== data.session_id) {
+  const changedSession = Boolean(data.session_id && previousSession && previousSession !== data.session_id);
+  if (changedSession) {
     localStorage.removeItem("timestamp_completions");
+    localStorage.removeItem("timestamp_scene_start");
+    localStorage.removeItem("timestamp_scene_stop");
+    state.sceneAlertLevel = 0;
   }
   if (data.session_id) setSessionId(data.session_id);
-  if (data.timer_start) localStorage.setItem("timestamp_scene_start", data.timer_start); else localStorage.removeItem("timestamp_scene_start");
-  if (data.timer_stop) localStorage.setItem("timestamp_scene_stop", data.timer_stop); else localStorage.removeItem("timestamp_scene_stop");
   const done = getCompletions();
   const timeline = data.timeline || {};
+  // An accepted server milestone wins. An empty field in an older snapshot
+  // cannot erase a locally started/stopped timer while its event is in transit.
+  // Never carry a timer over to a different server session.
+  const validTime = v => Number.isFinite(Date.parse(v || ""));
+  const acceptedStart = validTime(data.timer_start) ? data.timer_start : timeline.WITH_PATIENT?.event_time;
+  const acceptedStop = validTime(data.timer_stop) ? data.timer_stop : timeline.HANDOVER_COMPLETE?.event_time;
+  const localStart = localStorage.getItem("timestamp_scene_start");
+  const localStop = localStorage.getItem("timestamp_scene_stop");
+  const sameSession = Boolean(previousSession && previousSession === data.session_id);
+  const pendingStart = !changedSession && localEpisodeEvent("WITH_PATIENT",data.session_id);
+  const pendingStop = !changedSession && localEpisodeEvent("HANDOVER_COMPLETE",data.session_id);
+  const keepStart = !changedSession && validTime(localStart) && (sameSession || pendingStart);
+  const keepStop = !changedSession && validTime(localStop) && (sameSession || pendingStop);
+  const nextStart = validTime(acceptedStart) ? acceptedStart : keepStart ? localStart : "";
+  const nextStop = validTime(acceptedStop) ? acceptedStop : keepStop ? localStop : "";
+  if (nextStart) localStorage.setItem("timestamp_scene_start",nextStart); else localStorage.removeItem("timestamp_scene_start");
+  if (nextStart && nextStop && Date.parse(nextStop) >= Date.parse(nextStart)) localStorage.setItem("timestamp_scene_stop",nextStop); else localStorage.removeItem("timestamp_scene_stop");
   const accepted = new Map();
   const canonicalType = type => ["PHEA_DRUGS","DRUG_PHEA","INTERVENTION_PHEA"].includes(type) ? "PHEA" : type;
   Object.keys(timeline).forEach(key => {
