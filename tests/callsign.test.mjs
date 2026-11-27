@@ -71,7 +71,7 @@ function device(server, storage = new Map([["timestamp_organisation", "Magpas"]]
     setInterval() {},
     fetch: (...args) => server.fetch(...args)
   };
-  const api = runInNewContext(script + "\n({ pullActiveEpisode, syncPending, pheaCountdownAt, handleVoiceTranscript, state });", context);
+  const api = runInNewContext(script + "\n({ pullActiveEpisode, syncPending, pheaCountdownAt, handleVoiceTranscript, handoverConfig, handoverPeriodAt, state });", context);
   const timeline = label => get("topTimelineGrid").children.find(button => button.markup.includes(">" + label + "<"));
   return {
     ...api, get, navigator, storage, timeline,
@@ -287,4 +287,29 @@ test("unassigned Mobile opens the picker and only starts an idle team", async ()
     assert.equal(member.session(),"job-1");
   }
   assert.deepEqual(server.posts.map(event => event.event_type),["MOBILE"]);
+});
+
+test("handover confirms once per device per shift and survives Clear", async () => {
+  const server=backend(), member=device(server);
+  await member.select("HM66");
+  member.storage.set("timestamp_handover_confirmed","previous-shift");
+  await member.timeline("Mobile").click();
+  assert.equal(member.get("modalTitle").textContent,"Shift handover · confirm callsign");
+  assert.equal(server.posts.length,0);
+  await member.get("modalClose").click();
+  assert.equal(server.posts.length,0);
+  await member.timeline("Mobile").click();
+  await member.get("modalList").children.find(b=>b.textContent.startsWith("HM66")).click();
+  assert.equal(server.posts.length,1);
+  await member.clear();
+  await member.timeline("Mobile").click();
+  assert.equal(server.posts.filter(p=>p.event_type==="MOBILE").length,2);
+});
+test("handover periods use organisation time zone, including summer time", () => {
+  const member=device(backend()), cfg=member.handoverConfig("Magpas");
+  assert.equal(member.handoverPeriodAt(cfg,new Date("2026-11-27T06:59:00Z")),"2026-11-26T19:00");
+  assert.equal(member.handoverPeriodAt(cfg,new Date("2026-11-27T07:00:00Z")),"2026-11-27T07:00");
+  assert.equal(member.handoverPeriodAt(cfg,new Date("2026-07-01T06:00:00Z")),"2026-07-01T07:00");
+  assert.equal(member.handoverPeriodAt(member.handoverConfig("DSAA"),new Date()),"");
+  assert.equal(member.handoverPeriodAt(member.handoverConfig("DSAA",{timezone:"Europe/London",times:["08:30"]}),new Date("2026-11-27T09:00:00Z")),"2026-11-27T08:30");
 });
