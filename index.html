@@ -88,7 +88,7 @@ textarea{min-height:78px;resize:vertical}
 <body>
 <main id="mainContent">
 <header>
-  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.4.0-rc2 · <a id="outputLink" class="header-link" target="_blank" rel="noopener noreferrer" aria-disabled="true">Output unavailable</a></div></div>
+  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.4.0-rc3 · <a id="outputLink" class="header-link" target="_blank" rel="noopener noreferrer" aria-disabled="true">Output unavailable</a></div></div>
   <div class="clock"><strong id="clockTime">--:--:--</strong><span id="clockDate">--</span></div>
 </header>
 <button id="callsignButton" type="button" aria-haspopup="dialog">Select callsign</button>
@@ -164,7 +164,7 @@ textarea{min-height:78px;resize:vertical}
 </div>
 
 <script>
-const APP_VERSION = "1.4.0-rc2";
+const APP_VERSION = "1.4.0-rc3";
 const DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
 const DEFAULT_ORGANISATION = "";
 const DEFAULT_USER = "";
@@ -231,6 +231,41 @@ function getOrganisation() { return (localStorage.getItem("timestamp_organisatio
 // Keep the known legacy organisation names for offline operation, never the
 // master workbook URL. The server remains the authority for enabled teams.
 const LEGACY_DIRECTORY = [{name:"Magpas",output_url:null},{name:"DSAA",output_url:null},{name:"Timestamp Test",output_url:null}];
+function handoverConfig(name, raw) {
+  // Existing rc1 server has no schedule; only Magpas has a known default.
+  if(raw===undefined)raw=String(name).toLowerCase()==="magpas"?{timezone:"Europe/London",times:["07:00","19:00"]}:{timezone:"Europe/London",times:[]};
+  if(!raw || !Array.isArray(raw.times) || raw.times.length>24 || !raw.times.every(t=>typeof t==="string"&&/^([01]\d|2[0-3]):[0-5]\d$/.test(t)))return null;
+  try {new Intl.DateTimeFormat("en-GB",{timeZone:raw.timezone||""}).format(new Date());}catch{return null;}
+  return {timezone:raw.timezone,times:[...new Set(raw.times)].sort()};
+}
+function handoverPeriodAt(config, date) {
+  if(!config?.times?.length)return "";
+  const parts=Object.fromEntries(new Intl.DateTimeFormat("en-GB",{timeZone:config.timezone,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(date).map(p=>[p.type,p.value]));
+  const localDate=parts.year+"-"+parts.month+"-"+parts.day;
+  const clock=parts.hour+":"+parts.minute;
+  const match=config.times.filter(t=>t<=clock).pop();
+  if(match)return localDate+"T"+match;
+  const previous=new Date(localDate+"T12:00:00Z");
+  previous.setUTCDate(previous.getUTCDate()-1);
+  return previous.toISOString().slice(0,10)+"T"+config.times[config.times.length-1];
+}
+function handoverConfigForCurrentOrg() {
+  const entry=organisationDirectory.find(r=>r.name.toLowerCase()===getOrganisation().toLowerCase());
+  return entry?handoverConfig(entry.name,entry.handover):null;
+}
+function handoverConfirmationKey(team,date) {
+  const config=handoverConfigForCurrentOrg();
+  const period=handoverPeriodAt(config,date);
+  return period?JSON.stringify([getOrganisation(),team,config.timezone,config.times,period]):"";
+}
+function callsignNeedsConfirmation(team,date) {
+  const key=handoverConfirmationKey(team,date);
+  return !!key&&localStorage.getItem("timestamp_handover_confirmed")!==key;
+}
+function confirmCallsignForShift(team,date) {
+  const key=handoverConfirmationKey(team,date);
+  if(key)localStorage.setItem("timestamp_handover_confirmed",key);
+}
 function cleanDirectory(rows) {
   if(!Array.isArray(rows))return null;
   const out=[], seen=new Set();
@@ -239,7 +274,9 @@ function cleanDirectory(rows) {
     if(!/^[A-Za-z0-9][A-Za-z0-9 _-]{0,59}$/.test(name)||seen.has(key))return null;
     const url=String(row.output_url||"");
     const valid=/^https:\/\/docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]+\/edit$/.test(url);
-    out.push({name,output_url:valid?url:null});
+    const handover=handoverConfig(name,row.handover);
+    if(!handover)return null;
+    out.push({name,output_url:valid?url:null,handover});
     seen.add(key);
   }
   return out;
@@ -380,8 +417,8 @@ async function saveSettings() {
   pullActiveEpisode(true);
 }
 
-function buildPayload({eventType, note, category}) {
-  const d = new Date();
+function buildPayload({eventType, note, category, at}) {
+  const d = at || new Date();
   return {
     event_time: d.toISOString(),
     event_time_local: formatTime(d),
@@ -779,7 +816,7 @@ function teamChangeBlocked() {
     $("manualNote").value.trim();
 }
 
-async function chooseCallsign(label, startAfterAssignment = false) {
+async function chooseCallsign(label, startAfterAssignment = false, mobilePressedAt = null) {
   closeModal();
   if (state.teamAction) return;
   if (!approvedOrganisation(getOrganisation())) {
@@ -828,10 +865,11 @@ async function chooseCallsign(label, startAfterAssignment = false) {
   } finally {
     state.teamAction = false;
   }
-  if (startAfterAssignment && (sharedStatus === "none" || sharedStatus === "cleared")) await startMobile();
+  if (sharedStatus) confirmCallsignForShift(selected,new Date());
+  if (startAfterAssignment && (sharedStatus === "none" || sharedStatus === "cleared")) await startMobile(mobilePressedAt || new Date());
 }
 
-async function startMobile() {
+async function startMobile(pressedAt = new Date()) {
   if (state.teamAction) return;
   if (!approvedOrganisation(getOrganisation())) {
     $("setupDetails").open = true;
@@ -839,8 +877,8 @@ async function startMobile() {
     return;
   }
   if (getPendingClear()) { setStatus("Wait for Clear confirmation before starting another job.", "warn"); return; }
-  if (!getUserName()) { openModal("callsign",true); return; }
-  const payload = buildPayload({eventType:"MOBILE", note:"Mobile", category:"timeline"});
+  if (!getUserName()) { openModal("callsign",true,pressedAt); return; }
+  const payload = buildPayload({eventType:"MOBILE", note:"Mobile", category:"timeline",at:pressedAt});
   if (blockDuplicateMilestone(payload)) return;
 
   state.teamAction = true;
@@ -861,13 +899,14 @@ async function startMobile() {
     setStatus("Synchronise pending timestamps before starting another job.", "warn");
     return;
   }
+  if (callsignNeedsConfirmation(getUserName(),new Date())) { openModal("callsign",true,pressedAt,true); return; }
   await postTimestamp(payload);
 }
 
-function openModal(type, startAfterAssignment = false) {
+function openModal(type, startAfterAssignment = false, mobilePressedAt = null, handoverConfirmation = false) {
   if (type === "callsign") {
     state.modalType = type;
-    $("modalTitle").textContent = "Select callsign";
+    $("modalTitle").textContent = handoverConfirmation ? "Shift handover · confirm callsign" : "Select callsign";
     $("otherPanel").classList.remove("active");
     const list = $("modalList");
     list.innerHTML = "";
@@ -876,7 +915,9 @@ function openModal(type, startAfterAssignment = false) {
     options.forEach(label => {
       const btn = document.createElement("button");
       btn.textContent = label === "Personal" ? `Personal: ${localStorage.getItem("timestamp_personal_callsign") || "set in setup"}` : label;
-      btn.addEventListener("click", () => chooseCallsign(label,startAfterAssignment));
+      const selected=canonicalTeam(label==="Personal"?localStorage.getItem("timestamp_personal_callsign"):label);
+      if(selected&&selected===getUserName()){btn.className="done";btn.textContent+=" · current";}
+      btn.addEventListener("click", () => chooseCallsign(label,startAfterAssignment,mobilePressedAt));
       list.appendChild(btn);
     });
     $("modalBackdrop").style.display = "flex";
