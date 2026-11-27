@@ -71,7 +71,7 @@ function device(server, storage = new Map([["timestamp_organisation", "Magpas"]]
     setInterval() {},
     fetch: (...args) => server.fetch(...args)
   };
-  const api = runInNewContext(script + "\n({ pullActiveEpisode, syncPending, pheaCountdownAt });", context);
+  const api = runInNewContext(script + "\n({ pullActiveEpisode, syncPending, pheaCountdownAt, handleVoiceTranscript, state });", context);
   const timeline = label => get("topTimelineGrid").children.find(button => button.markup.includes(">" + label + "<"));
   return {
     ...api, get, navigator, storage, timeline,
@@ -81,6 +81,10 @@ function device(server, storage = new Map([["timestamp_organisation", "Magpas"]]
       return get("modalList").children.find(button => button.textContent.startsWith(label)).click();
     },
     session: () => storage.get("timestamp_session_id"),
+    async clear() {
+      await get("clearButton").click();
+      if (!get("phoneClearConfirm").hidden) await get("phoneClearAccept").click();
+    },
     pending: () => JSON.parse(storage.get("timestamp_pending_queue") || "[]")
   };
 }
@@ -109,7 +113,7 @@ test("one Mobile starts the shared job; either device can add events or clear it
   assert.equal(first.storage.get("timestamp_scene_start"), server.posts[1].event_time);
   assert.deepEqual(server.posts.map(event => event.event_type), ["MOBILE", "WITH_PATIENT", "PHEA"]);
   assert.equal(first.pheaCountdownAt(server.posts[2].event_time, Date.parse(server.posts[2].event_time) + 46000).elapsed, 46);
-  await second.get("clearButton").click();
+  await second.clear();
   await first.pullActiveEpisode();
   for (const member of [first, second]) {
     assert.equal(member.session(), undefined);
@@ -159,7 +163,7 @@ test("switching rechecks the current team and rejects locally queued work", asyn
   deviceA.navigator.onLine = false;
   await deviceA.timeline("With Patient").click();
   assert.equal(deviceA.pending()[0].session_id, deviceB.session());
-  await deviceB.get("clearButton").click();
+  await deviceB.clear();
   deviceA.navigator.onLine = true;
   await deviceA.select("CC01");
   assert.equal(deviceA.get("callsignButton").textContent, "HM66");
@@ -210,7 +214,7 @@ test("pending Clear keeps the callsign and blocks both switching and Mobile", as
     if (options.method === "POST" && JSON.parse(options.body).event_type === "CLEAR") return {};
     return fetch(url, options);
   };
-  await member.get("clearButton").click();
+  await member.clear();
   await member.select("CC01");
   await member.timeline("Mobile").click();
   assert.equal(member.session(), undefined);
@@ -219,8 +223,52 @@ test("pending Clear keeps the callsign and blocks both switching and Mobile", as
   assert.equal(server.teams.get("Helimed66").session_id, oldSession);
   assert.equal(server.posts.length, 1);
   server.fetch = fetch;
-  await member.get("clearButton").click();
+  await member.clear();
   assert.deepEqual(member.pending(), []);
   await member.select("CC01");
   assert.equal(member.get("callsignButton").textContent, "CC01");
+});
+
+test("Clear requires explicit confirmation tied to the displayed session", async () => {
+  const server = backend();
+  const member = device(server);
+  await member.select("HM66");
+  await member.timeline("Mobile").click();
+  await member.get("clearButton").click();
+  assert.equal(member.get("phoneClearConfirm").hidden, false);
+  assert.equal(server.posts.length, 1);
+  await member.get("phoneClearCancel").click();
+  assert.equal(member.get("phoneClearConfirm").hidden, true);
+  assert.equal(server.posts.length, 1);
+  await member.get("clearButton").click();
+  server.teams.set("Helimed66",{status:"active",session_id:"different-job",timeline:{}});
+  await member.pullActiveEpisode();
+  await member.get("phoneClearAccept").click();
+  assert.equal(member.session(),"different-job");
+  assert.equal(server.posts.length,1);
+  await member.clear();
+  assert.equal(server.posts.at(-1).event_type,"CLEAR");
+  assert.equal(server.posts.at(-1).session_id,"different-job");
+});
+
+test("voice dose restarts the shared ROC countdown and applies the colour thresholds", async () => {
+  const server = backend();
+  const member = device(server);
+  const teammate = device(server);
+  await member.select("HM66");
+  await teammate.select("HM66");
+  await member.timeline("Mobile").click();
+  await member.get("pheaButton").click();
+  member.state.voiceEpisode = member.session();
+  await member.handleVoiceTranscript("ROC.");
+  const dose = server.posts.at(-1);
+  assert.equal(dose.event_type,"ROCURONIUM");
+  await teammate.pullActiveEpisode();
+  assert.equal(teammate.get("pheaDetail").textContent,`Rocuronium at ${dose.event_time_local}`);
+  const since = Date.parse(dose.event_time);
+  for (const [seconds, color] of [[0,"green"],[1799,"green"],[1800,"amber"],[2399,"amber"],[2400,"red"],[2700,"green"]]) {
+    assert.equal(member.pheaCountdownAt(dose.event_time,since+1000*seconds,true).color,color);
+  }
+  assert.equal(member.pheaCountdownAt(dose.event_time,since+60000).remaining,2700);
+  assert.equal(member.pheaCountdownAt(dose.event_time,since+60000).color,"green");
 });
