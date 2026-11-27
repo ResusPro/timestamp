@@ -9,7 +9,7 @@ Release candidate for existing personal-device testing with backend v1.4.0-rc1 (
 - Clear shows an in-app confirmation tied to the current episode. Cancel leaves the shared job open.
 - A standalone voice note of “rocuronium” or “ROC” records a dose and restarts the 45-minute countdown. Longer notes mentioning rocuronium require confirmation. The countdown is green above 15 minutes, amber down to 5 minutes and red for the final 5 minutes.
 - Select a callsign from the button above the timeline. It persists through Clear and reloads. Selecting it fetches shared state without logging a timestamp.
-- One team member presses Mobile to start the shared episode. Other assigned devices pick it up on the next foreground poll (15 seconds) or on focus. A confirmed active episode is required before logging other events.
+- One team member presses Mobile to start the shared episode. With no callsign assigned, Mobile opens the callsign picker and starts the job on selection if the chosen team is idle. If it already has an active episode, the device joins it. Other assigned devices pick up the job on the next foreground poll (15 seconds) or on focus. A confirmed active episode is required before logging other events.
 - A team change requires a confirmed idle current team, an empty pending queue and no unresolved Clear or draft note. Mobile requires a live state check. Events on an already-loaded episode can still queue offline.
 - Approved organisation directory and independent, restricted organisation output files returned by the backend. No master workbook fallback.
 - Online-first app navigation with an offline shell, without deleting local event storage.
