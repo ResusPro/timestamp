@@ -1,4 +1,4 @@
-const CACHE_NAME = "timestamp-logger-v1-4-0-rc2-callsign";
+const CACHE_NAME = "timestamp-logger-v1-4-0-rc2-callsign-roc";
 const APP_SHELL = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 const shellUrls = new Set(APP_SHELL.map(path => new URL(path,self.registration.scope).href));
 
