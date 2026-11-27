@@ -95,7 +95,9 @@ test("one Mobile starts the shared job; either device can add events or clear it
   const second = device(server);
   assert.equal(first.get("callsignButton").textContent, "Select callsign");
   await first.timeline("Mobile").click();
-  assert.equal(first.get("modalBackdrop").style.display, undefined);
+  assert.equal(first.get("modalBackdrop").style.display, "flex");
+  await first.get("modalClose").click();
+  assert.equal(server.posts.length, 0);
   await first.select("HM66");
   await second.select("HM66");
   assert.equal(first.get("callsignButton").textContent, "HM66");
@@ -271,4 +273,18 @@ test("voice dose restarts the shared ROC countdown and applies the colour thresh
   }
   assert.equal(member.pheaCountdownAt(dose.event_time,since+60000).remaining,2700);
   assert.equal(member.pheaCountdownAt(dose.event_time,since+60000).color,"green");
+});
+
+test("unassigned Mobile opens the picker and only starts an idle team", async () => {
+  const server = backend();
+  const starter = device(server);
+  const joiner = device(server);
+  for (const member of [starter,joiner]) {
+    await member.timeline("Mobile").click();
+    assert.equal(member.get("modalBackdrop").style.display,"flex");
+    await member.get("modalList").children.find(button => button.textContent === "HM66").click();
+    assert.equal(member.get("callsignButton").textContent,"HM66");
+    assert.equal(member.session(),"job-1");
+  }
+  assert.deepEqual(server.posts.map(event => event.event_type),["MOBILE"]);
 });
