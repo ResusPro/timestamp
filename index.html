@@ -779,7 +779,7 @@ function teamChangeBlocked() {
     $("manualNote").value.trim();
 }
 
-async function chooseCallsign(label) {
+async function chooseCallsign(label, startAfterAssignment = false) {
   closeModal();
   if (state.teamAction) return;
   if (!approvedOrganisation(getOrganisation())) {
@@ -802,6 +802,7 @@ async function chooseCallsign(label) {
   }
 
   state.teamAction = true;
+  let sharedStatus;
   try {
     if (switching && previous) {
       setStatus("Checking the current team before switching…");
@@ -820,12 +821,14 @@ async function chooseCallsign(label) {
       renderAll();
     }
     setStatus(`Loading shared episode for ${callsignLabel(selected)}…`);
-    if (!await pullActiveEpisode(true) && !state.lastPullAt) {
+    sharedStatus = await pullActiveEpisode(true);
+    if (!sharedStatus && !state.lastPullAt) {
       setStatus(`${callsignLabel(selected)} selected. Waiting for shared state. Check your connection.`, "warn");
     }
   } finally {
     state.teamAction = false;
   }
+  if (startAfterAssignment && (sharedStatus === "none" || sharedStatus === "cleared")) await startMobile();
 }
 
 async function startMobile() {
@@ -835,8 +838,8 @@ async function startMobile() {
     setStatus("Select an approved organisation before starting a job.", "warn");
     return;
   }
-  if (!getUserName()) { setStatus("Select a callsign before pressing Mobile.", "warn"); return; }
   if (getPendingClear()) { setStatus("Wait for Clear confirmation before starting another job.", "warn"); return; }
+  if (!getUserName()) { openModal("callsign",true); return; }
   const payload = buildPayload({eventType:"MOBILE", note:"Mobile", category:"timeline"});
   if (blockDuplicateMilestone(payload)) return;
 
@@ -861,7 +864,7 @@ async function startMobile() {
   await postTimestamp(payload);
 }
 
-function openModal(type) {
+function openModal(type, startAfterAssignment = false) {
   if (type === "callsign") {
     state.modalType = type;
     $("modalTitle").textContent = "Select callsign";
@@ -873,7 +876,7 @@ function openModal(type) {
     options.forEach(label => {
       const btn = document.createElement("button");
       btn.textContent = label === "Personal" ? `Personal: ${localStorage.getItem("timestamp_personal_callsign") || "set in setup"}` : label;
-      btn.addEventListener("click", () => chooseCallsign(label));
+      btn.addEventListener("click", () => chooseCallsign(label,startAfterAssignment));
       list.appendChild(btn);
     });
     $("modalBackdrop").style.display = "flex";
