@@ -41,10 +41,10 @@ button:active{transform:translateY(1px)}
 .timeline-btn.done .time{color:#d8ffe8}
 .phea-button{width:100%;margin-top:10px;text-align:center;min-height:64px;display:grid;grid-template-columns:minmax(0,1fr);justify-items:center;align-items:center;gap:5px}
 .phea-button .phea-timer-content{display:none}
-.phea-button[aria-disabled="true"]{grid-template-columns:minmax(0,1fr) minmax(0,1fr);justify-items:stretch;text-align:left;gap:10px}
-.phea-button[aria-disabled="true"] .phea-timer-content{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;min-width:0}
-.phea-button[aria-disabled="true"] .phea-countdown,.phea-button[aria-disabled="true"] .phea-phase{text-align:right}
-.phea-button[aria-disabled="true"] .phea-detail{overflow-wrap:anywhere}
+.phea-button.countdown{grid-template-columns:minmax(0,1fr) minmax(0,1fr);justify-items:stretch;text-align:left;gap:10px}
+.phea-button.countdown .phea-timer-content{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;min-width:0}
+.phea-button.countdown .phea-countdown,.phea-button.countdown .phea-phase{text-align:right}
+.phea-button.countdown .phea-detail{overflow-wrap:anywhere}
 .phea-button .phea-label{display:block;font-size:1.05rem;font-weight:900}
 .phea-button .phea-detail{display:block;font-size:.78rem;color:#e1eaf2;margin-top:3px}
 .phea-button .phea-countdown{text-align:center;font-variant-numeric:tabular-nums;font-size:1.55rem;font-weight:950;line-height:1.15}
@@ -97,7 +97,6 @@ textarea{min-height:78px;resize:vertical}
   <div id="sceneTimer" class="scene-timer">
     <div class="scene-label">Patient contact time</div>
     <div id="sceneTime" class="scene-time">00:00:00</div>
-    <div class="small" id="sessionLine">Shared episode state</div>
   </div>
 
   <div id="status" class="status">Ready.</div>
@@ -117,6 +116,13 @@ textarea{min-height:78px;resize:vertical}
   <div class="job-row">
     <button class="secondary" id="manualButton">✍️ Manual note</button>
     <button class="danger" id="clearButton">Clear</button>
+  </div>
+  <div id="phoneClearConfirm" hidden>
+    <p>End patient episode? This stops both timers for the team. The episode remains in Output.</p>
+    <div class="row">
+      <button id="phoneClearCancel" type="button">Cancel</button>
+      <button id="phoneClearAccept" class="danger" type="button">End episode</button>
+    </div>
   </div>
 </section>
 
@@ -443,18 +449,18 @@ async function postTimestamp(payload, markComplete = true) {
 const PHEA_ACTIVATION_SECONDS = 60;
 const PHEA_WARNING_SECONDS = 45;
 const ROC_REMINDER_SECONDS = 45 * 60;
-function pheaCountdownAt(eventTime, nowMs) {
+function pheaCountdownAt(eventTime, nowMs, redose = false) {
   const start = Date.parse(eventTime || "");
   if (!Number.isFinite(start)) return null;
   const elapsed = Math.max(0,Math.floor((nowMs-start)/1000));
-  if (elapsed < PHEA_ACTIVATION_SECONDS) {
+  if (!redose && elapsed < PHEA_ACTIVATION_SECONDS) {
     return {elapsed,remaining:PHEA_ACTIVATION_SECONDS-elapsed,phase:"Intubation countdown",color:elapsed>=PHEA_WARNING_SECONDS?"amber":"green",reminders:0,fraction:(PHEA_ACTIVATION_SECONDS-elapsed)/PHEA_ACTIVATION_SECONDS};
   }
-  const sinceActivation = elapsed-PHEA_ACTIVATION_SECONDS;
+  const sinceActivation = elapsed-(redose ? 0 : PHEA_ACTIVATION_SECONDS);
   const reminders = Math.floor(sinceActivation/ROC_REMINDER_SECONDS);
   const remaining = ROC_REMINDER_SECONDS-(sinceActivation%ROC_REMINDER_SECONDS);
   const justDue = reminders>0 && sinceActivation%ROC_REMINDER_SECONDS<5;
-  return {elapsed,remaining,phase:justDue?"ROC top-up reminder":sinceActivation<5?"60s elapsed · ROC reminder":"ROC top-up countdown",color:justDue||remaining<=300?"red":remaining<=600?"amber":"green",reminders,fraction:remaining/ROC_REMINDER_SECONDS};
+  return {elapsed,remaining,phase:justDue?"ROC top-up reminder":!redose&&sinceActivation<5?"60s elapsed · ROC reminder":"ROC top-up countdown",color:remaining<=300?"red":remaining<=900?"amber":"green",reminders,fraction:remaining/ROC_REMINDER_SECONDS};
 }
 function formatPheaCountdown(seconds) {
   return String(Math.floor(seconds/60)).padStart(2,"0")+":"+String(seconds%60).padStart(2,"0");
@@ -462,10 +468,15 @@ function formatPheaCountdown(seconds) {
 function updatePheaButton() {
   const btn = $("pheaButton");
   if (!btn) return;
-  const entry = getCompletions().PHEA;
+  const done = getCompletions();
+  const entry = done.PHEA;
+  const roc = done.ROCURONIUM;
+  const redose = Number.isFinite(Date.parse(roc?.event_time)) &&
+    (!entry || Date.parse(roc.event_time) >= Date.parse(entry.event_time));
+  const anchor = redose ? roc : entry;
   const nowMs = Date.now();
-  const display = pheaCountdownAt(entry?.event_time,nowMs);
-  if (!entry || !display) {
+  const display = pheaCountdownAt(anchor?.event_time,nowMs,redose);
+  if (!display) {
     state.pheaPrevious = null;
     btn.className = "phea-button";
     btn.style.removeProperty("--phea-progress");
@@ -475,18 +486,19 @@ function updatePheaButton() {
     $("pheaPhase").textContent = "";
     return;
   }
-  btn.className = "phea-button phea-"+display.color;
+  btn.className = "phea-button countdown phea-"+display.color;
   btn.style.setProperty("--phea-progress", (Math.max(0,Math.min(1,display.fraction))*100).toFixed(3)+"%");
-  btn.setAttribute("aria-disabled","true");
-  $("pheaDetail").textContent = "Recorded "+(entry.time||formatTime(new Date(entry.event_time)))+" · locked";
+  if (entry) btn.setAttribute("aria-disabled","true"); else btn.removeAttribute("aria-disabled");
+  $("pheaDetail").textContent = redose ? "Rocuronium at "+(roc.time||formatTime(new Date(roc.event_time)))
+    : "Recorded "+(entry.time||formatTime(new Date(entry.event_time)))+" · locked";
   $("pheaCountdown").textContent = formatPheaCountdown(display.remaining);
   $("pheaPhase").textContent = display.phase;
-  const key = getOrganisation()+"|"+getUserName()+"|"+entry.event_time;
+  const key = getOrganisation()+"|"+getUserName()+"|"+anchor.event_time+"|"+redose;
   const prev = state.pheaPrevious;
   // Foreground crossing alerts only; do not replay old alerts when reopening.
   if (prev && prev.key===key && nowMs>=prev.nowMs && nowMs-prev.nowMs<=5000 && display.elapsed>=prev.elapsed) {
-    if (prev.elapsed<PHEA_ACTIVATION_SECONDS && display.elapsed>=PHEA_ACTIVATION_SECONDS) vibrate([180,100,180,100,180]);
-    else if (prev.elapsed<PHEA_WARNING_SECONDS && display.elapsed>=PHEA_WARNING_SECONDS) vibrate([120,60,120]);
+    if (!redose && prev.elapsed<PHEA_ACTIVATION_SECONDS && display.elapsed>=PHEA_ACTIVATION_SECONDS) vibrate([180,100,180,100,180]);
+    else if (!redose && prev.elapsed<PHEA_WARNING_SECONDS && display.elapsed>=PHEA_WARNING_SECONDS) vibrate([120,60,120]);
     else if (display.reminders>prev.reminders) vibrate([200,100,200,100,200]);
   }
   state.pheaPrevious = {key,nowMs,elapsed:display.elapsed,reminders:display.reminders};
@@ -514,8 +526,6 @@ function updateSceneTimer() {
   const s = String(secs % 60).padStart(2, "0");
   $("sceneTime").textContent = `${h}:${m}:${s}`;
   box.className = "scene-timer active" + (secs >= 1200 ? " bad" : secs >= 600 ? " warn" : "");
-  const session = getSessionId();
-  $("sessionLine").textContent = session ? `Session ${session}` : "Started at With Patient · stops at Handover or Clear";
   if (!stop) {
     const level = Math.floor(secs / 600);
     if (level > 0 && level > state.sceneAlertLevel) { state.sceneAlertLevel = level; vibrate([120,80,120]); setStatus(`${level * 10} min patient contact time`, "warn"); }
@@ -686,6 +696,9 @@ function applyActiveEpisode(data) {
     // Prefer the canonical server key if both a legacy alias and the key exist.
     if (type !== key && timeline[type]) return;
     accepted.set(type, ev);
+    const queuedRoc = type === "ROCURONIUM" && getPendingQueue().some(item =>
+      item.local_id === done[type]?.local_id && Date.parse(item.event_time) > Date.parse(ev.event_time));
+    if (queuedRoc) return;
     if (!["VOICE_NOTE","MANUAL_NOTE","TEST","CLEAR","JOB_COMPLETE"].includes(type)) {
       // Backend rc2 is authoritative. Never choose a conflicting optimistic local
       // timestamp simply because its clock reads earlier or later.
@@ -707,7 +720,7 @@ function applyActiveEpisode(data) {
   setCompletions(done);
   renderAll();
   const dbg = $("activeEpisodeDebug");
-  if (dbg) dbg.textContent = `Shared: ${data.status || "none"} · ${data.session_id || "no session"} · last ${data.last_event_type || "none"}`;
+  if (dbg) dbg.textContent = "Shared: active episode";
 }
 
 function updateSyncStatus() {
@@ -921,7 +934,7 @@ function dictateOtherItem() {
   r.lang = "en-GB"; r.interimResults = false; r.maxAlternatives = 1;
   r.onstart = () => setStatus("Listening for other item...");
   r.onerror = e => setStatus("Other item dictation error: " + e.error, "bad");
-  r.onresult = e => { if (!state.voiceEpisode || state.voiceEpisode !== getSessionId()) return; const text = e.results?.[0]?.[0]?.transcript || ""; if (text.trim()) { $("otherText").value = text.trim(); setStatus("Dictation captured. Tap Send other.", "ok"); } else setStatus("No speech detected.", "warn"); };
+  r.onresult = e => { const text = e.results?.[0]?.[0]?.transcript || ""; if (text.trim()) { $("otherText").value = text.trim(); setStatus("Dictation captured. Tap Send other.", "ok"); } else setStatus("No speech detected.", "warn"); };
   try { r.start(); } catch(err) { setStatus("Could not start dictation: " + err.message, "bad"); }
 }
 
@@ -933,8 +946,22 @@ function setupSpeechRecognition() {
   r.onstart = () => { $("voiceButton").classList.add("listening"); $("voiceButton").textContent = "🔴 LISTENING..."; setStatus("Listening..."); };
   r.onerror = e => { state.voiceEpisode = ""; $("voiceButton").classList.remove("listening"); $("voiceButton").textContent = "🎙️ VOICE NOTE"; setStatus("Voice error: " + e.error, "bad"); };
   r.onend = () => { state.voiceEpisode = ""; $("voiceButton").classList.remove("listening"); $("voiceButton").textContent = "🎙️ VOICE NOTE"; };
-  r.onresult = e => { const text = e.results?.[0]?.[0]?.transcript || ""; if (text.trim()) postTimestamp(buildPayload({eventType:"VOICE_NOTE", note:text.trim(), category:"voice"}), false); else setStatus("No speech detected.", "warn"); };
+  r.onresult = e => handleVoiceTranscript(e.results?.[0]?.[0]?.transcript || "");
   state.recognition = r;
+}
+function handleVoiceTranscript(transcript) {
+  const session = state.voiceEpisode;
+  if (!session || session !== getSessionId()) return;
+  state.voiceEpisode = "";
+  const note = transcript.trim();
+  if (!note) { setStatus("No speech detected.", "warn"); return; }
+  const command = /^(?:rocuronium|roc)[.!]?$/i.test(note);
+  const dose = command || (/\brocuronium\b/i.test(note) &&
+    confirm(`Heard “${note}”.\n\nWas rocuronium given? OK records the dose and restarts the 45-minute timer. Cancel saves a voice note only.`));
+  if (session !== getSessionId()) return;
+  return postTimestamp(buildPayload(dose
+    ? {eventType:"ROCURONIUM", note, category:"drug"}
+    : {eventType:"VOICE_NOTE", note, category:"voice"}), dose);
 }
 function startVoice() {
   if (!state.recognition) { setStatus("Voice unavailable. Use Manual note.", "warn"); return; }
@@ -951,6 +978,31 @@ function startVoice() {
 }
 function showManual(show) { $("manualCard").style.display = show ? "block" : "none"; if (show) $("manualNote").focus(); }
 
+function closePhoneClear() {
+  state.clearConfirmationSession = "";
+  $("phoneClearConfirm").hidden = true;
+  $("clearButton").focus();
+}
+
+async function requestPhoneClear() {
+  if (state.teamAction) { setStatus("Wait for the shared episode check.", "warn"); return; }
+  if (getPendingClear()) return clearEpisode();
+  if (!getSessionId()) { setStatus("No confirmed shared episode to clear. Check sync and try again.", "warn"); return; }
+  state.clearConfirmationSession = getSessionId();
+  $("phoneClearConfirm").hidden = false;
+  $("phoneClearCancel").focus();
+}
+
+async function acceptPhoneClear() {
+  const session = state.clearConfirmationSession;
+  closePhoneClear();
+  if (!session || session !== getSessionId()) {
+    setStatus("The shared episode has changed. Check the timeline before clearing.", "warn");
+    return;
+  }
+  return clearEpisode();
+}
+
 async function clearEpisode() {
   if (state.teamAction) { setStatus("Wait for the shared episode check.", "warn"); return; }
   if (getPendingClear()) { await syncPending(); await pullActiveEpisode(false); return; }
@@ -961,8 +1013,7 @@ async function clearEpisode() {
     if (state.teamAction || state.localRevision !== revision) return;
     if (!getSessionId()) { setStatus("No confirmed shared episode to clear. Check sync and try again.", "warn"); return; }
   }
-  const ok = confirm("End patient episode?\n\nThis will stop both timers immediately. The job is closed on the server when synchronisation confirms Clear.");
-  if (!ok) return;
+  if (!getSessionId()) return;
   const payload=buildPayload({eventType:"CLEAR",note:"Patient episode cleared",category:"job"});
   state.localRevision++;
   // Persist the closure request before removing the active UI.
@@ -1015,7 +1066,9 @@ function bindEvents() {
   $("modalBackdrop").addEventListener("click", e => { if (e.target === $("modalBackdrop")) closeModal(); });
   $("otherSendButton").addEventListener("click", sendOtherItem);
   $("otherDictateButton").addEventListener("click", dictateOtherItem);
-  $("clearButton").addEventListener("click", clearEpisode);
+  $("clearButton").addEventListener("click", requestPhoneClear);
+  $("phoneClearCancel").addEventListener("click", closePhoneClear);
+  $("phoneClearAccept").addEventListener("click", acceptPhoneClear);
 }
 
 function init() {
