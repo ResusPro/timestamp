@@ -33,19 +33,34 @@ h1{font-size:1.35rem;margin:0 0 2px;line-height:1.1}
 button{appearance:none;border:0;border-radius:15px;padding:12px;min-height:56px;color:var(--text);background:var(--panel2);font-size:.98rem;font-weight:850;box-shadow:inset 0 0 0 1px var(--border);touch-action:manipulation}
 button:active{transform:translateY(1px)}
 .timeline-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.timeline-btn{text-align:left;position:relative;min-height:62px}
+.timeline-btn{text-align:center;position:relative;min-height:62px}
 .timeline-btn .label{display:block;line-height:1.1}
 .timeline-btn .time{display:block;color:var(--muted);font-size:.83rem;margin-top:5px;font-variant-numeric:tabular-nums}
 .timeline-btn.done{background:#244635;color:#e8fff0}
 .timeline-btn.done::after{content:"✓";position:absolute;top:10px;right:12px;color:var(--accent);font-size:1.2rem}
 .timeline-btn.done .time{color:#d8ffe8}
+.phea-button{width:100%;margin-top:10px;text-align:center;min-height:64px;display:grid;grid-template-columns:minmax(0,1fr);justify-items:center;align-items:center;gap:5px}
+.phea-button .phea-timer-content{display:none}
+.phea-button[aria-disabled="true"]{grid-template-columns:minmax(0,1fr) minmax(0,1fr);justify-items:stretch;text-align:left;gap:10px}
+.phea-button[aria-disabled="true"] .phea-timer-content{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;min-width:0}
+.phea-button[aria-disabled="true"] .phea-countdown,.phea-button[aria-disabled="true"] .phea-phase{text-align:right}
+.phea-button[aria-disabled="true"] .phea-detail{overflow-wrap:anywhere}
+.phea-button .phea-label{display:block;font-size:1.05rem;font-weight:900}
+.phea-button .phea-detail{display:block;font-size:.78rem;color:#e1eaf2;margin-top:3px}
+.phea-button .phea-countdown{text-align:center;font-variant-numeric:tabular-nums;font-size:1.55rem;font-weight:950;line-height:1.15}
+.phea-button .phea-phase{display:block;font-size:.72rem;font-weight:800;text-align:center;color:#f3f7fb}
+.phea-button.phea-green{--phea-fill:#246342;--phea-edge:#53d48a}
+.phea-button.phea-amber{--phea-fill:#805316;--phea-edge:#ffc35c}
+.phea-button.phea-red{--phea-fill:#8a3333;--phea-edge:#ff8181}
+.phea-button.phea-green,.phea-button.phea-amber,.phea-button.phea-red{background:linear-gradient(to right,var(--phea-fill) 0%,var(--phea-fill) var(--phea-progress,100%),#10263f var(--phea-progress,100%),#10263f 100%);box-shadow:inset 0 0 0 2px var(--phea-edge)}
+.phea-button.phea-green .phea-countdown,.phea-button.phea-amber .phea-countdown,.phea-button.phea-red .phea-countdown{color:#fff}
 .action-row,.job-row,.row{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}
 .danger{background:var(--danger)!important}
 .secondary{background:#1b426d!important}
 .count{display:block;color:var(--muted);font-size:.82rem;font-weight:700;margin-top:3px}
 details summary{cursor:pointer;color:var(--muted);font-weight:850}
 label{display:block;color:var(--muted);font-size:.82rem;margin-bottom:6px}
-input,textarea{width:100%;background:#071625;color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:1rem}
+input,textarea,select{width:100%;background:#071625;color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:1rem}
 textarea{min-height:78px;resize:vertical}
 .manual-card{display:none}
 .history-item{border-top:1px solid var(--border);padding:9px 0;color:var(--muted);font-size:.9rem}
@@ -61,7 +76,7 @@ textarea{min-height:78px;resize:vertical}
 .modal-header h2{font-size:1.15rem;margin:0}
 .modal-close{min-height:44px;padding:8px 14px;background:var(--danger)}
 .list-grid{display:grid;grid-template-columns:1fr;gap:8px}
-.list-grid button{text-align:left;min-height:54px}
+.list-grid button{text-align:center;min-height:54px}
 .list-grid button.done{background:#244635;color:#e8fff0}
 .list-grid button .time{display:block;color:var(--muted);font-size:.82rem;margin-top:3px}
 .other-panel{display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
@@ -72,7 +87,7 @@ textarea{min-height:78px;resize:vertical}
 <body>
 <main>
 <header>
-  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.1.4 · <a class="header-link" href="https://tiny.cc/MagpasTimestamp" target="_blank" rel="noopener">Output</a></div></div>
+  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.4.0-rc1 · <a id="outputLink" class="header-link" target="_blank" rel="noopener noreferrer" aria-disabled="true">Output unavailable</a></div></div>
   <div class="clock"><strong id="clockTime">--:--:--</strong><span id="clockDate">--</span></div>
 </header>
 
@@ -86,6 +101,10 @@ textarea{min-height:78px;resize:vertical}
   <div id="status" class="status">Ready.</div>
 <div class="timeline-grid" id="topTimelineGrid"></div>
 
+  <button id="pheaButton" class="phea-button" type="button">
+    <span><span class="phea-label">PHEA</span><span class="phea-detail" id="pheaDetail">Record PHEA drugs</span></span>
+    <span class="phea-timer-content"><span class="phea-countdown" id="pheaCountdown"></span><span class="phea-phase" id="pheaPhase"></span></span>
+  </button>
   <div class="action-row">
     <button id="interventionButton">Intervention <span class="count" id="interventionCount">0 logged</span></button>
     <button id="drugButton">Drug <span class="count" id="drugCount">0 logged</span></button>
@@ -109,9 +128,11 @@ textarea{min-height:78px;resize:vertical}
   <details id="setupDetails">
     <summary>User setup</summary>
     <div class="row">
-      <div><label for="organisation">Organisation</label><input id="organisation" placeholder="e.g. Magpas"></div>
-      <div><label for="userName">User / callsign</label><input id="userName" placeholder="e.g. Nick"></div>
+      <div><label for="organisation">Organisation</label><select id="organisation"><option value="">Select organisation</option><option value="Magpas">Magpas</option><option value="DSAA">DSAA</option><option value="Timestamp Test">Timestamp Test</option></select></div>
+      <div><label for="userName">Current team (selected at Mobile)</label><input id="userName" readonly placeholder="Select at Mobile"></div>
     </div>
+    <div class="row"><div><label for="operatorName">Operator / device (optional)</label><input id="operatorName" placeholder="e.g. Nick or Doctor phone"></div><div><label for="personalCallsign">Personal callsign</label><input id="personalCallsign" placeholder="e.g. Nick"></div></div>
+    <div class="small">When pressing Mobile at the start of a job, choose HM66, M33, CC01 or Personal. The selection is kept for the whole job and shared across devices.</div>
     <div class="row"><button id="saveSettingsButton">Save setup</button><button id="pullStateButton">Pull shared state</button></div>
     <div class="small" id="activeEpisodeDebug" style="margin-top:8px;"></div>
   </details>
@@ -135,9 +156,9 @@ textarea{min-height:78px;resize:vertical}
 </div>
 
 <script>
-const APP_VERSION = "1.1.4";
+const APP_VERSION = "1.4.0-rc1";
 const DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
-const DEFAULT_ORGANISATION = "Magpas";
+const DEFAULT_ORGANISATION = "";
 const DEFAULT_USER = "";
 const APP_SOURCE = "PWA";
 
@@ -164,11 +185,19 @@ const INTERVENTIONS = [
   {label:"IO Access",type:"IO_ACCESS"},
   {label:"IV Access",type:"IV_ACCESS"},
   {label:"Pelvic Binder",type:"PELVIC_BINDER"},
-  {label:"PHEA",type:"PHEA"},
   {label:"ROSC",type:"ROSC"},
   {label:"Thoracostomy",type:"THORACOSTOMY"},
   {label:"Tourniquet",type:"TOURNIQUET"}
 ];
+
+// Single-occurrence job milestones, including PHEA, are immutable.
+// Other interventions may legitimately recur; drugs, ROSC and notes can repeat.
+// Keep this list aligned with the backend and both native watch apps.
+const WRITE_ONCE_TYPES = new Set([
+  ...TOP_TIMELINE_EVENTS,
+  ...LATER_TIMELINE_EVENTS,
+  {type:"PHEA"}
+].map(event => event.type));
 
 const DRUGS = [
   {label:"Adrenaline",type:"ADRENALINE"},
@@ -182,38 +211,149 @@ const DRUGS = [
 ];
 
 const $ = id => document.getElementById(id);
-const state = { recognition:null, modalType:null, sceneAlertLevel:0, lastPullAt:0 };
+const state = { recognition:null, modalType:null, sceneAlertLevel:0, lastPullAt:0, pullSequence:0, appliedPullSequence:0, localRevision:0 };
 
 function formatTime(date = new Date()) { return new Intl.DateTimeFormat("en-GB", {hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false}).format(date); }
 function formatDate(date = new Date()) { return new Intl.DateTimeFormat("en-GB", {weekday:"short", day:"2-digit", month:"short"}).format(date); }
-function updateClock() { $("clockTime").textContent = formatTime(); $("clockDate").textContent = formatDate(); updateSceneTimer(); updateSyncStatus(); }
+function updateClock() { $("clockTime").textContent = formatTime(); $("clockDate").textContent = formatDate(); updateSceneTimer(); updatePheaButton(); updateSyncStatus(); }
 function setStatus(message, kind = "") { const el = $("status"); el.className = "status" + (kind ? " " + kind : ""); el.textContent = message; }
 function getEndpoint() { return DEFAULT_ENDPOINT_URL.trim(); }
 function getOrganisation() { return (localStorage.getItem("timestamp_organisation") || DEFAULT_ORGANISATION).trim(); }
-function getUserName() { return (localStorage.getItem("timestamp_user") || DEFAULT_USER).trim(); }
+// Only independent output URLs returned by the backend are accepted.
+// Keep the known legacy organisation names for offline operation, never the
+// master workbook URL. The server remains the authority for enabled teams.
+const LEGACY_DIRECTORY = [{name:"Magpas",output_url:null},{name:"DSAA",output_url:null},{name:"Timestamp Test",output_url:null}];
+function cleanDirectory(rows) {
+  if(!Array.isArray(rows))return null;
+  const out=[], seen=new Set();
+  for(const row of rows){
+    const name=String(row?.name||"").trim(), key=name.toLowerCase();
+    if(!/^[A-Za-z0-9][A-Za-z0-9 _-]{0,59}$/.test(name)||seen.has(key))return null;
+    const url=String(row.output_url||"");
+    const valid=/^https:\/\/docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]+\/edit$/.test(url);
+    out.push({name,output_url:valid?url:null});
+    seen.add(key);
+  }
+  return out;
+}
+let organisationDirectory = LEGACY_DIRECTORY;
+function restoreOrganisationDirectory() {
+  try {
+    const cached=cleanDirectory(JSON.parse(localStorage.getItem("timestamp_org_directory_v14")||"null"));
+    if(cached)organisationDirectory=cached;
+  }catch{}
+}
+function approvedOrganisation(value) {
+  const key=String(value||"").trim().toLowerCase();
+  return organisationDirectory.find(r=>r.name.toLowerCase()===key)?.name||"";
+}
+function outputDestination(organisation) {
+  const key=String(organisation||"").trim().toLowerCase();
+  const url=organisationDirectory.find(r=>r.name.toLowerCase()===key)?.output_url||null;
+  return {url,matched:!!url};
+}
+function renderOrganisationChoices() {
+  const select=$("organisation");
+  if(!select)return;
+  const chosen=select.value||getOrganisation();
+  select.replaceChildren();
+  const placeholder=document.createElement("option");placeholder.value="";placeholder.textContent="Select organisation";select.appendChild(placeholder);
+  for(const entry of organisationDirectory){const option=document.createElement("option");option.value=entry.name;option.textContent=entry.name;select.appendChild(option);}
+  select.value=approvedOrganisation(chosen);
+}
+async function refreshOrganisationDirectory() {
+  if(!navigator.onLine)return;
+  try{
+    const res=await fetch(getEndpoint()+"?action=organisationConfig",{cache:"no-store"});
+    const data=await res.json(), rows=cleanDirectory(data.organisations);
+    if(data.status!=="ok"||!rows)return;
+    organisationDirectory=rows;
+    localStorage.setItem("timestamp_org_directory_v14",JSON.stringify(rows));
+    renderOrganisationChoices();updateOutputLink();
+  }catch{/* Keep last known configuration offline. */}
+}
+function updateOutputLink() {
+  const link=$("outputLink");
+  if(!link)return;
+  const org=getOrganisation(), dest=outputDestination(org);
+  if (dest.matched) { link.href=dest.url; link.removeAttribute("aria-disabled"); }
+  else { link.removeAttribute("href"); link.setAttribute("aria-disabled","true"); }
+  link.title=dest.matched?"Open "+org+" output":"Select an approved organisation with a configured output";
+  link.textContent=dest.matched?"Output":"Output unavailable";
+}
+function canonicalTeam(value) {
+  const raw = String(value || "").trim();
+  if (/^(hm[ -]?66|heli[ -]?med[ -]?66)$/i.test(raw)) return "Helimed66";
+  if (/^(m[ -]?33|medic[ -]?33)$/i.test(raw)) return "Medic33";
+  if (/^cc[ -]?01$/i.test(raw)) return "CC01";
+  return raw;
+}
+// Backward-compatible: backend 'user' field currently functions as the team key.
+function getUserName() { return canonicalTeam(localStorage.getItem("timestamp_user") || DEFAULT_USER); }
+function getOperatorName() { return (localStorage.getItem("timestamp_operator") || "").trim(); }
 function getSessionId() { return localStorage.getItem("timestamp_session_id") || ""; }
 function setSessionId(id) { if (id) localStorage.setItem("timestamp_session_id", id); }
 function getCompletions() { return JSON.parse(localStorage.getItem("timestamp_completions") || "{}"); }
 function setCompletions(obj) { localStorage.setItem("timestamp_completions", JSON.stringify(obj)); }
 function getHistory() { return JSON.parse(localStorage.getItem("timestamp_history") || "[]"); }
 function setHistory(arr) { localStorage.setItem("timestamp_history", JSON.stringify(arr.slice(0, 100))); }
+function getPendingClear() { return JSON.parse(localStorage.getItem("timestamp_pending_clear") || "null"); }
+function setPendingClear(payload) { if (payload) localStorage.setItem("timestamp_pending_clear",JSON.stringify(payload)); else localStorage.removeItem("timestamp_pending_clear"); }
+function closedSessionKey() { return "timestamp_closed_session:"+getOrganisation()+"|"+getUserName(); }
+function rememberClosedSession(session) { if (session) localStorage.setItem(closedSessionKey(),session); }
+function clearLocalEpisode() {
+  localStorage.removeItem("timestamp_completions");
+  localStorage.removeItem("timestamp_scene_start");
+  localStorage.removeItem("timestamp_scene_stop");
+  localStorage.removeItem("timestamp_session_id");
+  state.sceneAlertLevel = 0;
+  state.pheaPrevious = null;
+}
 function getPendingQueue() { return JSON.parse(localStorage.getItem("timestamp_pending_queue") || "[]"); }
 function setPendingQueue(queue) { localStorage.setItem("timestamp_pending_queue", JSON.stringify(queue)); }
 function makeLocalId() { return "local-" + Date.now() + "-" + Math.random().toString(36).slice(2,10); }
 
 function loadSettings() {
-  $("organisation").value = getOrganisation();
+  restoreOrganisationDirectory();
+  renderOrganisationChoices();
+  updateOutputLink();
+  $("organisation").value = approvedOrganisation(getOrganisation());
+  if (getOrganisation() && !approvedOrganisation(getOrganisation())) { $("setupDetails").open=true; setStatus("Previous organisation is not approved. Contact an administrator before logging.", "warn"); }
   $("userName").value = getUserName();
-  if (!$("userName").value.trim()) $("setupDetails").open = true;
+  $("operatorName").value = getOperatorName();
+  $("personalCallsign").value = localStorage.getItem("timestamp_personal_callsign") || "";
+  if (!$("userName").value.trim() || !approvedOrganisation(getOrganisation())) $("setupDetails").open = true;
 }
 function saveSettings() {
-  const org = $("organisation").value.trim() || DEFAULT_ORGANISATION;
-  const user = $("userName").value.trim();
+  if (getPendingClear()) { setStatus("Wait for Clear confirmation before changing team setup.", "warn"); return; }
+  const org = approvedOrganisation($("organisation").value);
+  if (!org) { setStatus("Select an approved organisation first.", "warn"); return; }
+  const changedOrganisation = org !== getOrganisation();
+  if (changedOrganisation && (getSessionId() || Object.keys(getCompletions()).length || getPendingQueue().length)) { setStatus("Finish and synchronise the existing episode before changing organisation.", "warn"); return; }
+  const user = changedOrganisation ? "" : getUserName(); // Team is chosen at Mobile, not edited in settings.
+  const operator = $("operatorName").value.trim();
+  const personal = $("personalCallsign").value.trim();
+  const changedTeam = org !== getOrganisation() || user !== getUserName();
   localStorage.setItem("timestamp_organisation", org);
+  updateOutputLink();
   localStorage.setItem("timestamp_user", user);
+  localStorage.setItem("timestamp_operator", operator);
+  localStorage.setItem("timestamp_personal_callsign", personal);
   $("organisation").value = org;
   $("userName").value = user;
-  setStatus("User setup saved.", "ok");
+  $("operatorName").value = operator;
+  $("personalCallsign").value = personal;
+  if (changedTeam) {
+    // Leave queued events intact: each payload retains its original team identity.
+    localStorage.removeItem("timestamp_completions");
+    localStorage.removeItem("timestamp_scene_start");
+    localStorage.removeItem("timestamp_scene_stop");
+    localStorage.removeItem("timestamp_session_id");
+    state.lastPullAt = 0;
+    state.sceneAlertLevel = 0;
+    renderAll();
+  }
+  setStatus(changedTeam ? `Switched to ${user || "unassigned team"}. Loading shared job…` : "Team setup saved.", "ok");
   pullActiveEpisode(true);
 }
 
@@ -228,6 +368,8 @@ function buildPayload({eventType, note, category}) {
     note: note || "",
     prompt: `${formatTime(d)} - ${note || eventType || ""}`,
     user: getUserName(),
+    team_id: getUserName(),
+    operator: getOperatorName(),
     organisation: getOrganisation(),
     source: APP_SOURCE,
     app_version: APP_VERSION,
@@ -238,13 +380,28 @@ function buildPayload({eventType, note, category}) {
   };
 }
 
+function blockDuplicateMilestone(payload) {
+  if (!WRITE_ONCE_TYPES.has(payload.event_type)) return false;
+  const previous = getCompletions()[payload.event_type];
+  if (!previous) return false;
+  const recordedAt = previous.time || "an earlier time";
+  setStatus(`${payload.note || payload.event_type} already recorded at ${recordedAt}. Original timestamp retained.`, "warn");
+  vibrate([75, 60, 75]);
+  return true;
+}
+
 async function postTimestamp(payload, markComplete = true) {
-  if (!payload.user) { setStatus("Add user/callsign in User setup before logging.", "warn"); $("setupDetails").open = true; return false; }
+  if (!approvedOrganisation(payload.organisation)) { setStatus("Select an approved organisation before logging.", "warn"); $("setupDetails").open=true; return false; }
+  if (getPendingClear()) { setStatus("Clear awaiting server confirmation. Please synchronise before starting another job.", "warn"); return false; }
+  // Check before history, queue, timer, or backend submission: a second tap is inert.
+  if (blockDuplicateMilestone(payload)) return false;
+  if (!payload.user) { setStatus("Select a team callsign in User setup before logging.", "warn"); $("setupDetails").open = true; return false; }
+  state.localRevision++;
   saveHistory(payload);
   enqueuePending(payload);
   if (markComplete && payload.event_type && !["VOICE_NOTE","MANUAL_NOTE","TEST","CLEAR","JOB_COMPLETE"].includes(payload.event_type)) {
     const done = getCompletions();
-    done[payload.event_type] = { time: payload.event_time_local, note: payload.note, category: payload.event_category, event_time: payload.event_time, source: payload.source, app_version: payload.app_version };
+    done[payload.event_type] = { time: payload.event_time_local, note: payload.note, category: payload.event_category, event_time: payload.event_time, source: payload.source, app_version: payload.app_version, local_id:payload.local_id, sync_status:"pending" };
     setCompletions(done);
   }
   handleTimerEvent(payload);
@@ -255,6 +412,60 @@ async function postTimestamp(payload, markComplete = true) {
   await syncPending();
   await pullActiveEpisode(false);
   return true;
+}
+
+// Match the latest watch reminder cadence: 45s warning, 60s activation,
+// then 45-minute reminders. These are elapsed-time reminders only.
+const PHEA_ACTIVATION_SECONDS = 60;
+const PHEA_WARNING_SECONDS = 45;
+const ROC_REMINDER_SECONDS = 45 * 60;
+function pheaCountdownAt(eventTime, nowMs) {
+  const start = Date.parse(eventTime || "");
+  if (!Number.isFinite(start)) return null;
+  const elapsed = Math.max(0,Math.floor((nowMs-start)/1000));
+  if (elapsed < PHEA_ACTIVATION_SECONDS) {
+    return {elapsed,remaining:PHEA_ACTIVATION_SECONDS-elapsed,phase:"Intubation countdown",color:elapsed>=PHEA_WARNING_SECONDS?"amber":"green",reminders:0,fraction:(PHEA_ACTIVATION_SECONDS-elapsed)/PHEA_ACTIVATION_SECONDS};
+  }
+  const sinceActivation = elapsed-PHEA_ACTIVATION_SECONDS;
+  const reminders = Math.floor(sinceActivation/ROC_REMINDER_SECONDS);
+  const remaining = ROC_REMINDER_SECONDS-(sinceActivation%ROC_REMINDER_SECONDS);
+  const justDue = reminders>0 && sinceActivation%ROC_REMINDER_SECONDS<5;
+  return {elapsed,remaining,phase:justDue?"ROC top-up reminder":sinceActivation<5?"60s elapsed · ROC reminder":"ROC top-up countdown",color:justDue||remaining<=300?"red":remaining<=600?"amber":"green",reminders,fraction:remaining/ROC_REMINDER_SECONDS};
+}
+function formatPheaCountdown(seconds) {
+  return String(Math.floor(seconds/60)).padStart(2,"0")+":"+String(seconds%60).padStart(2,"0");
+}
+function updatePheaButton() {
+  const btn = $("pheaButton");
+  if (!btn) return;
+  const entry = getCompletions().PHEA;
+  const nowMs = Date.now();
+  const display = pheaCountdownAt(entry?.event_time,nowMs);
+  if (!entry || !display) {
+    state.pheaPrevious = null;
+    btn.className = "phea-button";
+    btn.style.removeProperty("--phea-progress");
+    btn.removeAttribute("aria-disabled");
+    $("pheaDetail").textContent = "Record PHEA drugs";
+    $("pheaCountdown").textContent = "";
+    $("pheaPhase").textContent = "";
+    return;
+  }
+  btn.className = "phea-button phea-"+display.color;
+  btn.style.setProperty("--phea-progress", (Math.max(0,Math.min(1,display.fraction))*100).toFixed(3)+"%");
+  btn.setAttribute("aria-disabled","true");
+  $("pheaDetail").textContent = "Recorded "+(entry.time||formatTime(new Date(entry.event_time)))+" · locked";
+  $("pheaCountdown").textContent = formatPheaCountdown(display.remaining);
+  $("pheaPhase").textContent = display.phase;
+  const key = getOrganisation()+"|"+getUserName()+"|"+entry.event_time;
+  const prev = state.pheaPrevious;
+  // Foreground crossing alerts only; do not replay old alerts when reopening.
+  if (prev && prev.key===key && nowMs>=prev.nowMs && nowMs-prev.nowMs<=5000 && display.elapsed>=prev.elapsed) {
+    if (prev.elapsed<PHEA_ACTIVATION_SECONDS && display.elapsed>=PHEA_ACTIVATION_SECONDS) vibrate([180,100,180,100,180]);
+    else if (prev.elapsed<PHEA_WARNING_SECONDS && display.elapsed>=PHEA_WARNING_SECONDS) vibrate([120,60,120]);
+    else if (display.reminders>prev.reminders) vibrate([200,100,200,100,200]);
+  }
+  state.pheaPrevious = {key,nowMs,elapsed:display.elapsed,reminders:display.reminders};
 }
 
 function handleTimerEvent(payload) {
@@ -289,23 +500,40 @@ function updateSceneTimer() {
 
 function enqueuePending(payload) { const q = getPendingQueue(); if (!q.some(x => x.local_id === payload.local_id)) { q.push(payload); setPendingQueue(q); } }
 function saveHistory(payload) { const h = getHistory(); h.unshift(payload); setHistory(h); }
-function markHistorySent(localId) { setHistory(getHistory().map(x => x.local_id === localId ? {...x, sync_status:"sent"} : x)); }
+function markHistorySubmitted(localId) { setHistory(getHistory().map(x => x.local_id === localId && x.sync_status !== "confirmed" && x.sync_status !== "not accepted — original retained" ? {...x, sync_status:"submitted — unconfirmed"} : x)); }
 
 async function syncPending() {
+  if (state.syncInFlight) return;
   if (!navigator.onLine) { updateSyncStatus(); return; }
   const q = getPendingQueue();
   if (!q.length) { updateSyncStatus(); return; }
+  state.syncInFlight = true;
   const still = [];
-  for (const item of q) {
-    try {
-      await fetch(getEndpoint(), { method:"POST", mode:"no-cors", headers:{"Content-Type":"application/json"}, body:JSON.stringify({...item, sync_status:"sent"}) });
-      markHistorySent(item.local_id);
-    } catch (err) { still.push(item); }
+  try {
+    for (let i=0;i<q.length;i++) {
+      const item=q[i];
+      try {
+        await fetch(getEndpoint(), { method:"POST", mode:"no-cors", headers:{"Content-Type":"application/json"}, body:JSON.stringify({...item, sync_status:"submitted"}) });
+        markHistorySubmitted(item.local_id);
+        // An opaque POST is not acknowledgement. Keep Clear queued until
+        // the shared episode is confirmed closed. Retry with the same ID.
+        if (item.event_type === "CLEAR" && getPendingClear()?.local_id === item.local_id) { still.push(...q.slice(i)); break; }
+      } catch (err) { still.push(...q.slice(i)); break; }
+    }
+  } finally {
+    // Preserve entries added by button presses while asynchronous POSTs run.
+    const attempted = new Set(q.map(item => item.local_id));
+    const newlyQueued = getPendingQueue().filter(item => !attempted.has(item.local_id));
+    setPendingQueue(still.concat(newlyQueued).filter(x=>x.local_id!==state.lastConfirmedClearId));
+    state.syncInFlight = false;
+    renderHistory();
+    updateSyncStatus();
+    if (getPendingClear()) { setStatus("Clear requested · awaiting server confirmation.", "warn"); return; }
+    setStatus(still.length || newlyQueued.length
+      ? `${still.length + newlyQueued.length} pending sync. Will retry.`
+      : "Upload submitted; checking shared episode.",
+      still.length || newlyQueued.length ? "warn" : "ok");
   }
-  setPendingQueue(still);
-  renderHistory();
-  updateSyncStatus();
-  setStatus(still.length ? `${still.length} pending sync. Will retry.` : "All synced.", still.length ? "warn" : "ok");
 }
 
 async function pullActiveEpisode(showStatus = false) {
@@ -313,20 +541,69 @@ async function pullActiveEpisode(showStatus = false) {
   const org = getOrganisation();
   const user = getUserName();
   if (!org || !user) return;
-  const url = getEndpoint() + `?action=activeEpisode&organisation=${encodeURIComponent(org)}&user=${encodeURIComponent(user)}`;
+  const requestedIdentity = org + "|" + user;
+  const pullSequence = ++state.pullSequence;
+  const localRevision = state.localRevision;
+  const url = getEndpoint() + `?action=activeEpisode&organisation=${encodeURIComponent(org)}&user=${encodeURIComponent(user)}&team_id=${encodeURIComponent(user)}`;
   try {
     const res = await fetch(url, { method:"GET", cache:"no-store" });
     const data = await res.json();
+    if (requestedIdentity !== getOrganisation() + "|" + getUserName() || pullSequence < state.appliedPullSequence || localRevision !== state.localRevision) return;
+    if (!data || !["active","cleared","none"].includes(data.status)) throw new Error("Invalid shared state");
+    state.appliedPullSequence = pullSequence;
     applyActiveEpisode(data);
     state.lastPullAt = Date.now();
-    if (showStatus) setStatus("Shared episode state loaded.", "ok");
+    if (showStatus && !getPendingClear() && data.status!=="cleared") setStatus("Shared episode state loaded.", "ok");
   } catch (err) {
     if (showStatus) setStatus("Could not load shared state: " + err.message, "warn");
   }
 }
 
+function localEpisodeEvent(type, session) {
+  const entries = getPendingQueue().concat(getHistory());
+  return entries.find(x => x.event_type === type &&
+    x.organisation === getOrganisation() && canonicalTeam(x.team_id || x.user) === getUserName() &&
+    (!x.session_id || x.session_id === session) &&
+    ["pending","submitted — unconfirmed","submitted"].includes(x.sync_status) &&
+    Number.isFinite(Date.parse(x.event_time || "")));
+}
 function applyActiveEpisode(data) {
+  const clearing = getPendingClear();
+  if (clearing && clearing.organisation===getOrganisation() && canonicalTeam(clearing.team_id || clearing.user)===getUserName()) {
+    const serverTime=Date.parse(data?.last_event_time || "");
+    const clearTime=Date.parse(clearing.event_time || "");
+    const confirmed=data?.status==="cleared" && Number.isFinite(serverTime) && Number.isFinite(clearTime) && serverTime>=clearTime;
+    const newerSession=data?.status==="active" && clearing.session_id && data.session_id && clearing.session_id!==data.session_id;
+    if (confirmed || newerSession) {
+      state.lastConfirmedClearId=clearing.local_id;
+      rememberClosedSession(clearing.session_id);
+      setPendingQueue(getPendingQueue().filter(x=>x.local_id!==clearing.local_id));
+      setHistory(getHistory().map(x=>x.local_id===clearing.local_id?{...x,sync_status:confirmed?"confirmed":"superseded — not confirmed"}:x));
+      setPendingClear(null);
+      clearLocalEpisode();
+      if (confirmed) {
+        renderAll();
+        setStatus("Clear confirmed by server. Available for next job.", "ok");
+        const dbg=$("activeEpisodeDebug"); if(dbg) dbg.textContent="Shared: cleared · ready for next job";
+        return;
+      }
+      setStatus("A different shared job is active; previous Clear was not confirmed. Check the episode before continuing.", "warn");
+    } else {
+      // An old active/empty snapshot cannot resurrect either timer.
+      clearLocalEpisode();
+      renderAll();
+      setStatus("Clear requested · awaiting server confirmation.", "warn");
+      const dbg=$("activeEpisodeDebug"); if(dbg) dbg.textContent="Shared: awaiting Clear confirmation";
+      return;
+    }
+  }
+  if (data?.status==="active" && data.session_id && data.session_id===localStorage.getItem(closedSessionKey())) return;
   if (data && data.status === "cleared") {
+    // Do not erase a new locally queued episode because a poll returned the prior clear.
+    const clearedAt = Date.parse(data.last_event_time || "");
+    const hasNewPending = getPendingQueue().concat(getHistory()).some(x => x.organisation === getOrganisation() && canonicalTeam(x.team_id || x.user) === getUserName() && !["CLEAR","JOB_COMPLETE"].includes(x.event_type) && ["pending","submitted — unconfirmed","submitted"].includes(x.sync_status) && (!Number.isFinite(clearedAt) || Date.parse(x.event_time) > clearedAt));
+    if (hasNewPending) { renderAll(); return; }
+    rememberClosedSession(getSessionId());
     localStorage.removeItem("timestamp_completions");
     localStorage.removeItem("timestamp_scene_start");
     localStorage.removeItem("timestamp_scene_stop");
@@ -337,18 +614,68 @@ function applyActiveEpisode(data) {
     return;
   }
 
-  if (!data || data.status === "none") { renderAll(); return; }
+  if (!data || data.status === "none") {
+    renderAll();
+    const dbg = $("activeEpisodeDebug");
+    if (dbg) dbg.textContent = `Shared: no active episode for ${getUserName() || "unassigned team"}`;
+    return;
+  }
+  const previousSession = getSessionId();
+  // The shared server may have advanced to another job since this device last pulled.
+  const changedSession = Boolean(data.session_id && previousSession && previousSession !== data.session_id);
+  if (changedSession) {
+    localStorage.removeItem("timestamp_completions");
+    localStorage.removeItem("timestamp_scene_start");
+    localStorage.removeItem("timestamp_scene_stop");
+    state.sceneAlertLevel = 0;
+  }
   if (data.session_id) setSessionId(data.session_id);
-  if (data.timer_start) localStorage.setItem("timestamp_scene_start", data.timer_start); else localStorage.removeItem("timestamp_scene_start");
-  if (data.timer_stop) localStorage.setItem("timestamp_scene_stop", data.timer_stop); else localStorage.removeItem("timestamp_scene_stop");
   const done = getCompletions();
   const timeline = data.timeline || {};
-  Object.keys(timeline).forEach(type => {
-    const ev = timeline[type] || {};
+  // An accepted server milestone wins. An empty field in an older snapshot
+  // cannot erase a locally started/stopped timer while its event is in transit.
+  // Never carry a timer over to a different server session.
+  const validTime = v => Number.isFinite(Date.parse(v || ""));
+  const acceptedStart = validTime(data.timer_start) ? data.timer_start : timeline.WITH_PATIENT?.event_time;
+  const acceptedStop = validTime(data.timer_stop) ? data.timer_stop : timeline.HANDOVER_COMPLETE?.event_time;
+  const localStart = localStorage.getItem("timestamp_scene_start");
+  const localStop = localStorage.getItem("timestamp_scene_stop");
+  const sameSession = Boolean(previousSession && previousSession === data.session_id);
+  const pendingStart = !changedSession && localEpisodeEvent("WITH_PATIENT",data.session_id);
+  const pendingStop = !changedSession && localEpisodeEvent("HANDOVER_COMPLETE",data.session_id);
+  const keepStart = !changedSession && validTime(localStart) && (sameSession || pendingStart);
+  const keepStop = !changedSession && validTime(localStop) && (sameSession || pendingStop);
+  const nextStart = validTime(acceptedStart) ? acceptedStart : keepStart ? localStart : "";
+  const nextStop = validTime(acceptedStop) ? acceptedStop : keepStop ? localStop : "";
+  if (nextStart) localStorage.setItem("timestamp_scene_start",nextStart); else localStorage.removeItem("timestamp_scene_start");
+  if (nextStart && nextStop && Date.parse(nextStop) >= Date.parse(nextStart)) localStorage.setItem("timestamp_scene_stop",nextStop); else localStorage.removeItem("timestamp_scene_stop");
+  const accepted = new Map();
+  const canonicalType = type => ["PHEA_DRUGS","DRUG_PHEA","INTERVENTION_PHEA"].includes(type) ? "PHEA" : type;
+  Object.keys(timeline).forEach(key => {
+    const type = canonicalType(key);
+    const ev = timeline[key] || {};
+    if (!Number.isFinite(Date.parse(ev.event_time || ""))) return;
+    // Prefer the canonical server key if both a legacy alias and the key exist.
+    if (type !== key && timeline[type]) return;
+    accepted.set(type, ev);
     if (!["VOICE_NOTE","MANUAL_NOTE","TEST","CLEAR","JOB_COMPLETE"].includes(type)) {
-      done[type] = { time: ev.event_time_local || "", note: ev.note || "", category: ev.event_category || "", event_time: ev.event_time || "", source: ev.source || "", app_version: ev.app_version || "" };
+      // Backend rc2 is authoritative. Never choose a conflicting optimistic local
+      // timestamp simply because its clock reads earlier or later.
+      done[type] = { time: ev.event_time_local || formatTime(new Date(ev.event_time)), note: ev.note || "", category: ev.event_category || "", event_time: ev.event_time, source: ev.source || "", app_version: ev.app_version || "", local_id: ev.local_id || "", sync_status:"confirmed" };
     }
   });
+  // Only matching server event IDs constitute acknowledgement. The active
+  // timeline contains only the latest repeatable event, so earlier repeatable
+  // submissions may remain unconfirmed here even if they reached the sheet.
+  setHistory(getHistory().map(item => {
+    if (item.organisation !== getOrganisation() || canonicalTeam(item.team_id || item.user) !== getUserName()) return item;
+    const type = canonicalType(item.event_type);
+    const ev = accepted.get(type);
+    if (!ev) return item;
+    if (item.local_id && ev.local_id === item.local_id) return {...item, sync_status:"confirmed", session_id:data.session_id || item.session_id};
+    if (item.session_id && item.session_id === data.session_id && WRITE_ONCE_TYPES.has(type) && ev.local_id && item.sync_status !== "confirmed") return {...item, sync_status:"not accepted — original retained"};
+    return item;
+  }));
   setCompletions(done);
   renderAll();
   const dbg = $("activeEpisodeDebug");
@@ -358,10 +685,11 @@ function applyActiveEpisode(data) {
 function updateSyncStatus() {
   const el = $("syncStatus"); if (!el) return;
   const count = getPendingQueue().length;
+  if (getPendingClear()) { el.className="sync-status warn"; el.textContent="Clear awaiting server confirmation"+(!navigator.onLine?" · offline":""); return; }
   const pulled = state.lastPullAt ? ` · shared ${Math.round((Date.now() - state.lastPullAt) / 1000)}s ago` : "";
   if (!navigator.onLine) { el.className = "sync-status bad"; el.textContent = count ? `Offline · ${count} pending` : "Offline"; }
   else if (count) { el.className = "sync-status warn"; el.textContent = `Online · ${count} pending sync${pulled}`; }
-  else { el.className = "sync-status ok"; el.textContent = `Online · all synced${pulled}`; }
+  else { const unconfirmed = getHistory().filter(x => x.organisation === getOrganisation() && canonicalTeam(x.team_id || x.user) === getUserName() && x.sync_status === "submitted — unconfirmed").length; el.className = "sync-status" + (unconfirmed ? " warn" : " ok"); el.textContent = `Online · queue empty${unconfirmed ? ` · ${unconfirmed} unconfirmed` : ""}${pulled}`; }
 }
 
 function vibrate(pattern) { if ("vibrate" in navigator) navigator.vibrate(pattern); }
@@ -376,9 +704,13 @@ function renderTimelineGroup(grid, events) {
   events.forEach(ev => {
     const btn = document.createElement("button");
     btn.className = "timeline-btn" + (done[ev.type] ? " done" : "");
-    if (ev.full) btn.style.gridColumn = "1 / -1";
+    if (done[ev.type]) {
+      btn.title = `Recorded at ${done[ev.type].time || "previously"} — timestamp locked`;
+      btn.setAttribute("aria-disabled", "true");
+    }
+    if (ev.full) { btn.style.gridColumn = "1 / -1"; btn.style.textAlign = "center"; }
     btn.innerHTML = `<span class="label">${escapeHtml(ev.label)}</span><span class="time">${done[ev.type]?.time || ""}</span>`;
-    btn.addEventListener("click", () => postTimestamp(buildPayload({eventType:ev.type, note:ev.label, category:"timeline"})));
+    btn.addEventListener("click", () => ev.type === "MOBILE" ? openModal("callsign") : postTimestamp(buildPayload({eventType:ev.type, note:ev.label, category:"timeline"})));
     grid.appendChild(btn);
   });
 }
@@ -398,9 +730,67 @@ function renderHistory() {
   el.innerHTML = h.map(item => `<div class="history-item"><strong>${escapeHtml(item.event_time_local || "")}</strong> ${escapeHtml(item.note || item.event_type || "")}<br><span class="small">${escapeHtml(item.event_category || "")} · ${escapeHtml(item.organisation || "")} / ${escapeHtml(item.user || "")} · ${escapeHtml(item.sync_status || "sent")}</span></div>`).join("");
 }
 
-function renderAll() { renderTimeline(); renderCounts(); renderHistory(); updateSceneTimer(); }
+function renderAll() { renderTimeline(); renderCounts(); renderHistory(); updateSceneTimer(); updatePheaButton(); }
+
+async function chooseMobileCallsign(label) {
+  if (!approvedOrganisation(getOrganisation())) { closeModal(); $("setupDetails").open=true; setStatus("Select an approved organisation before starting a job.", "warn"); return; }
+  if (getPendingClear()) { closeModal(); setStatus("Clear awaiting server confirmation. Please synchronise before starting another job.", "warn"); return; }
+  const selected = label === "Personal"
+    ? (localStorage.getItem("timestamp_personal_callsign") || "").trim()
+    : canonicalTeam(label);
+  if (!selected) {
+    setStatus("Enter a personal callsign in User setup first.", "warn");
+    $("setupDetails").open = true;
+    closeModal();
+    return;
+  }
+  closeModal();
+  // Avoid changing team halfway through a job, or silently leaving an active
+  // patient episode on the previously selected crew.
+  if (Object.keys(getCompletions()).length && getSessionId()) {
+    setStatus("An episode is active. Clear it before choosing another job.", "warn");
+    return;
+  }
+  const previous = getUserName();
+  if (selected !== previous) {
+    localStorage.setItem("timestamp_user", selected);
+    localStorage.removeItem("timestamp_completions");
+    localStorage.removeItem("timestamp_scene_start");
+    localStorage.removeItem("timestamp_scene_stop");
+    localStorage.removeItem("timestamp_session_id");
+    $("userName").value = selected;
+    renderAll();
+  }
+  await pullActiveEpisode(false);
+  if (getCompletions().MOBILE) {
+    setStatus(`Mobile already recorded at ${getCompletions().MOBILE.time || "an earlier time"} for ${selected}.`, "warn");
+    return;
+  }
+  await postTimestamp(buildPayload({eventType:"MOBILE", note:"Mobile", category:"timeline"}));
+}
 
 function openModal(type) {
+  if (type === "callsign") {
+    if (getCompletions().MOBILE) {
+      setStatus(`Mobile already recorded at ${getCompletions().MOBILE.time || "an earlier time"}.`, "warn");
+      return;
+    }
+    state.modalType = type;
+    $("modalTitle").textContent = "Mobile · select callsign";
+    $("otherPanel").classList.remove("active");
+    const list = $("modalList");
+    list.innerHTML = "";
+    const options = getOrganisation().toLowerCase() === "magpas"
+      ? ["HM66", "M33", "CC01", "Personal"] : ["Personal"];
+    options.forEach(label => {
+      const btn = document.createElement("button");
+      btn.textContent = label === "Personal" ? `Personal: ${localStorage.getItem("timestamp_personal_callsign") || "set in setup"}` : label;
+      btn.addEventListener("click", () => chooseMobileCallsign(label));
+      list.appendChild(btn);
+    });
+    $("modalBackdrop").style.display = "flex";
+    return;
+  }
   state.modalType = type;
   const items = type === "intervention" ? INTERVENTIONS : DRUGS;
   $("modalTitle").textContent = type === "intervention" ? "Intervention" : "Drug";
@@ -413,6 +803,10 @@ function openModal(type) {
   items.forEach(item => {
     const btn = document.createElement("button");
     btn.className = done[item.type] ? "done" : "";
+    if (done[item.type] && WRITE_ONCE_TYPES.has(item.type)) {
+      btn.title = `Recorded at ${done[item.type].time || "previously"} — timestamp locked`;
+      btn.setAttribute("aria-disabled", "true");
+    }
     btn.innerHTML = `${escapeHtml(item.label)}${done[item.type] ? `<span class="time">✓ ${escapeHtml(done[item.type].time)}</span>` : ""}`;
     btn.addEventListener("click", () => { closeModal(); postTimestamp(buildPayload({eventType:item.type, note:item.label, category:type})); });
     list.appendChild(btn);
@@ -459,17 +853,25 @@ function startVoice() { if (!state.recognition) { setStatus("Voice unavailable. 
 function showManual(show) { $("manualCard").style.display = show ? "block" : "none"; if (show) $("manualNote").focus(); }
 
 async function clearEpisode() {
-  const ok = confirm("End patient episode?\n\nThis will clear the active screen and make you available for the next job.\n\nThe episode remains available in Output for HEMSbase / PHEMnet entry.");
+  if (getPendingClear()) { await syncPending(); await pullActiveEpisode(false); return; }
+  if (!getUserName()) { setStatus("No team selected.", "warn"); return; }
+  if (!getSessionId()) {
+    await syncPending(); await pullActiveEpisode(false);
+    if (!getSessionId()) { setStatus("No confirmed shared episode to clear. Check sync and try again.", "warn"); return; }
+  }
+  const ok = confirm("End patient episode?\n\nThis will stop both timers immediately. The job is closed on the server when synchronisation confirms Clear.");
   if (!ok) return;
-  const payload = buildPayload({eventType:"CLEAR", note:"Patient episode cleared", category:"job"});
-  await postTimestamp(payload, false);
-  localStorage.removeItem("timestamp_completions");
-  localStorage.removeItem("timestamp_history");
-  localStorage.removeItem("timestamp_scene_start");
-  localStorage.removeItem("timestamp_scene_stop");
-  localStorage.removeItem("timestamp_session_id");
+  const payload=buildPayload({eventType:"CLEAR",note:"Patient episode cleared",category:"job"});
+  state.localRevision++;
+  // Persist the closure request before removing the active UI.
+  saveHistory(payload);
+  enqueuePending(payload);
+  setPendingClear(payload);
+  clearLocalEpisode();
   renderAll();
-  setStatus("Clear. Available for next job. Episode remains in Output.", "ok");
+  updateSyncStatus();
+  setStatus("Clear requested · awaiting server confirmation.", "warn");
+  await syncPending();
   await pullActiveEpisode(false);
 }
 
@@ -498,6 +900,7 @@ function bindEvents() {
     $("manualNote").value = "";
     showManual(false);
   });
+  $("pheaButton").addEventListener("click", () => postTimestamp(buildPayload({eventType:"PHEA", note:"PHEA", category:"intervention"})));
   $("interventionButton").addEventListener("click", () => openModal("intervention"));
   $("drugButton").addEventListener("click", () => openModal("drug"));
   $("modalClose").addEventListener("click", closeModal);
@@ -509,6 +912,8 @@ function bindEvents() {
 
 function init() {
   loadSettings();
+  refreshOrganisationDirectory();
+  if (getPendingClear()) clearLocalEpisode();
   updateClock();
   setInterval(updateClock, 1000);
   renderAll();
@@ -518,11 +923,15 @@ function init() {
   updateSyncStatus();
   syncPending();
   pullActiveEpisode(false);
-  window.addEventListener("online", () => { updateSyncStatus(); syncPending(); pullActiveEpisode(false); });
+  window.addEventListener("online", () => { refreshOrganisationDirectory(); updateSyncStatus(); syncPending(); pullActiveEpisode(false); });
   window.addEventListener("offline", updateSyncStatus);
+  window.addEventListener("focus", () => { refreshOrganisationDirectory(); pullActiveEpisode(false); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) pullActiveEpisode(false); });
   setInterval(syncPending, 30000);
-  setInterval(() => pullActiveEpisode(false), 30000);
-  if (!getUserName()) setStatus("Add user/callsign in User setup before first use.", "warn");
+  setInterval(refreshOrganisationDirectory, 300000);
+  setInterval(() => { if (!document.hidden) pullActiveEpisode(false); }, 15000);
+  if (!approvedOrganisation(getOrganisation())) setStatus("Choose an approved organisation in User setup before logging.", "warn");
+  else if (!getUserName()) setStatus("Press Mobile to choose your callsign before the first job.", "warn");
 }
 init();
 </script>
