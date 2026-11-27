@@ -1,4 +1,4 @@
-# Timestamp Logger PWA v1.4.0-rc1
+# Timestamp Logger PWA v1.4.0-rc2
 
 Release candidate for existing personal-device testing with backend v1.4.0-rc1 (production deployment 19). Not yet validated for wider clinical rollout.
 
@@ -6,11 +6,15 @@ Release candidate for existing personal-device testing with backend v1.4.0-rc1 (
 - Dedicated write-once PHEA button with a 60-second activation countdown, 45-second warning, and recurring 45-minute ROC reminders.
 - Sweeping countdown fill, shared event-time anchor and centred idle buttons.
 - Protected patient-contact timer and Clear confirmation, including stale-snapshot protection.
-- Callsign selection on Mobile and regular shared-state polling.
+- Select a callsign from the button above the timeline. It persists through Clear and reloads. Selecting it fetches shared state without logging a timestamp.
+- One team member presses Mobile to start the shared episode. Other assigned devices pick it up on the next foreground poll (15 seconds) or on focus. A confirmed active episode is required before logging other events.
+- A team change requires a confirmed idle current team, an empty pending queue and no unresolved Clear or draft note. Mobile requires a live state check. Events on an already-loaded episode can still queue offline.
 - Approved organisation directory and independent, restricted organisation output files returned by the backend. No master workbook fallback.
 - Online-first app navigation with an offline shell, without deleting local event storage.
 
 ## Validation and limitations
+Run the synthetic frontend checks with `node --test tests/callsign.test.mjs` (Node 22+). They use a simulated backend and synthetic data.
+
 Previous candidates were tested with synthetic data and the backend organisation migration was verified. Re-test this combined candidate on the installed PWA and paired watch before clinical reliance. Browser background alerts are not guaranteed. Ordinary opaque uploads are not definitive acknowledgements; unconfirmed events may need reconciliation. Pending Clear blocks new local jobs until confirmed. Organisation output refresh is periodic; priority refresh on Clear is outstanding. Full PWA/Wear OS API authentication, native watch updates and cross-device validation remain outstanding.
 
 Keep pending timestamps intact when updating: close and reopen the installed PWA online when no job is active. Do not clear browser site storage or uninstall to force an update.
