@@ -1,6 +1,23 @@
-# Timestamp Logger PWA v1.3.0-rc1
+# Timestamp Logger PWA v1.4.0-rc1
 
-Compatible with the existing Backend v1.1.1 API; backend write-once enforcement is still required before this is a complete multi-device fix.
+Release candidate for existing personal-device testing with backend v1.4.0-rc1 (production deployment 19). Not yet validated for wider clinical rollout.
+
+## Changes
+- Dedicated write-once PHEA button with a 60-second activation countdown, 45-second warning, and recurring 45-minute ROC reminders.
+- Sweeping countdown fill, shared event-time anchor and centred idle buttons.
+- Protected patient-contact timer and Clear confirmation, including stale-snapshot protection.
+- Callsign selection on Mobile and regular shared-state polling.
+- Approved organisation directory and independent, restricted organisation output files returned by the backend. No master workbook fallback.
+- Online-first app navigation with an offline shell, without deleting local event storage.
+
+## Validation and limitations
+Previous candidates were tested with synthetic data and the backend organisation migration was verified. Re-test this combined candidate on the installed PWA and paired watch before clinical reliance. Browser background alerts are not guaranteed. Ordinary opaque uploads are not definitive acknowledgements; unconfirmed events may need reconciliation. Pending Clear blocks new local jobs until confirmed. Organisation output refresh is periodic; priority refresh on Clear is outstanding. Full PWA/Wear OS API authentication, native watch updates and cross-device validation remain outstanding.
+
+Keep pending timestamps intact when updating: close and reopen the installed PWA online when no job is active. Do not clear browser site storage or uninstall to force an update.
+
+## Earlier development history
+
+Historical notes below describe earlier development candidates, not the current release.
 
 ## v1.3.0-rc1 — callsign selection at Mobile
 
