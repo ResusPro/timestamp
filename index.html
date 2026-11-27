@@ -75,6 +75,7 @@ textarea{min-height:78px;resize:vertical}
 .modal-header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
 .modal-header h2{font-size:1.15rem;margin:0}
 .modal-close{min-height:44px;padding:8px 14px;background:var(--danger)}
+#callsignButton{width:100%;min-height:54px;text-align:center;margin-bottom:10px}
 .list-grid{display:grid;grid-template-columns:1fr;gap:8px}
 .list-grid button{text-align:center;min-height:54px}
 .list-grid button.done{background:#244635;color:#e8fff0}
@@ -85,11 +86,12 @@ textarea{min-height:78px;resize:vertical}
 </style>
 </head>
 <body>
-<main>
+<main id="mainContent">
 <header>
-  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.4.0-rc1 · <a id="outputLink" class="header-link" target="_blank" rel="noopener noreferrer" aria-disabled="true">Output unavailable</a></div></div>
+  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.4.0-rc2 · <a id="outputLink" class="header-link" target="_blank" rel="noopener noreferrer" aria-disabled="true">Output unavailable</a></div></div>
   <div class="clock"><strong id="clockTime">--:--:--</strong><span id="clockDate">--</span></div>
 </header>
+<button id="callsignButton" type="button" aria-haspopup="dialog">Select callsign</button>
 
 <section class="card">
   <div id="sceneTimer" class="scene-timer">
@@ -129,10 +131,10 @@ textarea{min-height:78px;resize:vertical}
     <summary>User setup</summary>
     <div class="row">
       <div><label for="organisation">Organisation</label><select id="organisation"><option value="">Select organisation</option><option value="Magpas">Magpas</option><option value="DSAA">DSAA</option><option value="Timestamp Test">Timestamp Test</option></select></div>
-      <div><label for="userName">Current team (selected at Mobile)</label><input id="userName" readonly placeholder="Select at Mobile"></div>
+      <div><label for="userName">Current team</label><input id="userName" readonly placeholder="Select callsign"></div>
     </div>
     <div class="row"><div><label for="operatorName">Operator / device (optional)</label><input id="operatorName" placeholder="e.g. Nick or Doctor phone"></div><div><label for="personalCallsign">Personal callsign</label><input id="personalCallsign" placeholder="e.g. Nick"></div></div>
-    <div class="small">When pressing Mobile at the start of a job, choose HM66, M33, CC01 or Personal. The selection is kept for the whole job and shared across devices.</div>
+    <div class="small">Use the callsign button above the timeline to join your team. One team member presses Mobile to start the job.</div>
     <div class="row"><button id="saveSettingsButton">Save setup</button><button id="pullStateButton">Pull shared state</button></div>
     <div class="small" id="activeEpisodeDebug" style="margin-top:8px;"></div>
   </details>
@@ -141,9 +143,9 @@ textarea{min-height:78px;resize:vertical}
 <section class="card"><details open><summary>Local timeline</summary><div id="syncStatus" class="sync-status">Sync status loading...</div><div id="history"></div></details></section>
 </main>
 
-<div class="bottom-voice"><div class="bottom-voice-inner"><button class="voice-button" id="voiceButton">🎙️ VOICE NOTE</button></div></div>
+<div class="bottom-voice" id="voiceBar"><div class="bottom-voice-inner"><button class="voice-button" id="voiceButton">🎙️ VOICE NOTE</button></div></div>
 
-<div class="modal-backdrop" id="modalBackdrop">
+<div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
   <div class="modal">
     <div class="modal-header"><h2 id="modalTitle">Select</h2><button class="modal-close" id="modalClose">Close</button></div>
     <div class="list-grid" id="modalList"></div>
@@ -156,7 +158,7 @@ textarea{min-height:78px;resize:vertical}
 </div>
 
 <script>
-const APP_VERSION = "1.4.0-rc1";
+const APP_VERSION = "1.4.0-rc2";
 const DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
 const DEFAULT_ORGANISATION = "";
 const DEFAULT_USER = "";
@@ -290,6 +292,11 @@ function canonicalTeam(value) {
 }
 // Backward-compatible: backend 'user' field currently functions as the team key.
 function getUserName() { return canonicalTeam(localStorage.getItem("timestamp_user") || DEFAULT_USER); }
+function callsignLabel(team) {
+  if (team === "Helimed66") return "HM66";
+  if (team === "Medic33") return "M33";
+  return team;
+}
 function getOperatorName() { return (localStorage.getItem("timestamp_operator") || "").trim(); }
 function getSessionId() { return localStorage.getItem("timestamp_session_id") || ""; }
 function setSessionId(id) { if (id) localStorage.setItem("timestamp_session_id", id); }
@@ -319,18 +326,32 @@ function loadSettings() {
   updateOutputLink();
   $("organisation").value = approvedOrganisation(getOrganisation());
   if (getOrganisation() && !approvedOrganisation(getOrganisation())) { $("setupDetails").open=true; setStatus("Previous organisation is not approved. Contact an administrator before logging.", "warn"); }
-  $("userName").value = getUserName();
+  $("userName").value = callsignLabel(getUserName());
   $("operatorName").value = getOperatorName();
   $("personalCallsign").value = localStorage.getItem("timestamp_personal_callsign") || "";
   if (!$("userName").value.trim() || !approvedOrganisation(getOrganisation())) $("setupDetails").open = true;
 }
-function saveSettings() {
+async function saveSettings() {
+  if (state.teamAction) { setStatus("Wait for the shared episode check.", "warn"); return; }
   if (getPendingClear()) { setStatus("Wait for Clear confirmation before changing team setup.", "warn"); return; }
   const org = approvedOrganisation($("organisation").value);
   if (!org) { setStatus("Select an approved organisation first.", "warn"); return; }
   const changedOrganisation = org !== getOrganisation();
-  if (changedOrganisation && (getSessionId() || Object.keys(getCompletions()).length || getPendingQueue().length)) { setStatus("Finish and synchronise the existing episode before changing organisation.", "warn"); return; }
-  const user = changedOrganisation ? "" : getUserName(); // Team is chosen at Mobile, not edited in settings.
+  if (changedOrganisation && teamChangeBlocked()) { setStatus("Finish and synchronise the existing episode before changing organisation.", "warn"); return; }
+  if (changedOrganisation && getUserName()) {
+    state.teamAction = true;
+    let status;
+    try {
+      status = await pullActiveEpisode();
+    } finally {
+      state.teamAction = false;
+    }
+    if (!status || status === "active" || teamChangeBlocked()) {
+      setStatus("Changing organisation requires a confirmed idle team and a clear upload queue.", "warn");
+      return;
+    }
+  }
+  const user = changedOrganisation ? "" : getUserName();
   const operator = $("operatorName").value.trim();
   const personal = $("personalCallsign").value.trim();
   const changedTeam = org !== getOrganisation() || user !== getUserName();
@@ -340,17 +361,13 @@ function saveSettings() {
   localStorage.setItem("timestamp_operator", operator);
   localStorage.setItem("timestamp_personal_callsign", personal);
   $("organisation").value = org;
-  $("userName").value = user;
+  $("userName").value = callsignLabel(user);
   $("operatorName").value = operator;
   $("personalCallsign").value = personal;
   if (changedTeam) {
-    // Leave queued events intact: each payload retains its original team identity.
-    localStorage.removeItem("timestamp_completions");
-    localStorage.removeItem("timestamp_scene_start");
-    localStorage.removeItem("timestamp_scene_stop");
-    localStorage.removeItem("timestamp_session_id");
+    clearLocalEpisode();
+    state.localRevision++;
     state.lastPullAt = 0;
-    state.sceneAlertLevel = 0;
     renderAll();
   }
   setStatus(changedTeam ? `Switched to ${user || "unassigned team"}. Loading shared job…` : "Team setup saved.", "ok");
@@ -391,11 +408,18 @@ function blockDuplicateMilestone(payload) {
 }
 
 async function postTimestamp(payload, markComplete = true) {
+  if (state.teamAction) { setStatus("Wait for the shared episode check.", "warn"); return false; }
   if (!approvedOrganisation(payload.organisation)) { setStatus("Select an approved organisation before logging.", "warn"); $("setupDetails").open=true; return false; }
   if (getPendingClear()) { setStatus("Clear awaiting server confirmation. Please synchronise before starting another job.", "warn"); return false; }
   // Check before history, queue, timer, or backend submission: a second tap is inert.
   if (blockDuplicateMilestone(payload)) return false;
-  if (!payload.user) { setStatus("Select a team callsign in User setup before logging.", "warn"); $("setupDetails").open = true; return false; }
+  if (!payload.user) { setStatus("Select a callsign before logging.", "warn"); return false; }
+  if (payload.event_type !== "MOBILE" &&
+      (!payload.session_id || payload.session_id !== getSessionId() ||
+       payload.organisation !== getOrganisation() || payload.user !== getUserName())) {
+    setStatus("Wait for an active shared episode before logging.", "warn");
+    return false;
+  }
   state.localRevision++;
   saveHistory(payload);
   enqueuePending(payload);
@@ -549,13 +573,17 @@ async function pullActiveEpisode(showStatus = false) {
     const res = await fetch(url, { method:"GET", cache:"no-store" });
     const data = await res.json();
     if (requestedIdentity !== getOrganisation() + "|" + getUserName() || pullSequence < state.appliedPullSequence || localRevision !== state.localRevision) return;
-    if (!data || !["active","cleared","none"].includes(data.status)) throw new Error("Invalid shared state");
+    if (!data || !["active","cleared","none"].includes(data.status) || (data.status === "active" && !data.session_id)) throw new Error("Invalid shared state");
     state.appliedPullSequence = pullSequence;
     applyActiveEpisode(data);
     state.lastPullAt = Date.now();
-    if (showStatus && !getPendingClear() && data.status!=="cleared") setStatus("Shared episode state loaded.", "ok");
+    if (showStatus && !getPendingClear() && data.status!=="cleared") setStatus(data.status === "active" ? "Shared episode loaded." : "Ready for Mobile.", "ok");
+    return data.status;
   } catch (err) {
-    if (showStatus) setStatus("Could not load shared state: " + err.message, "warn");
+    if (showStatus && requestedIdentity === getOrganisation() + "|" + getUserName() &&
+        pullSequence > state.appliedPullSequence && localRevision === state.localRevision) {
+      setStatus("Could not load shared state: " + err.message, "warn");
+    }
   }
 }
 
@@ -710,7 +738,7 @@ function renderTimelineGroup(grid, events) {
     }
     if (ev.full) { btn.style.gridColumn = "1 / -1"; btn.style.textAlign = "center"; }
     btn.innerHTML = `<span class="label">${escapeHtml(ev.label)}</span><span class="time">${done[ev.type]?.time || ""}</span>`;
-    btn.addEventListener("click", () => ev.type === "MOBILE" ? openModal("callsign") : postTimestamp(buildPayload({eventType:ev.type, note:ev.label, category:"timeline"})));
+    btn.addEventListener("click", () => ev.type === "MOBILE" ? startMobile() : postTimestamp(buildPayload({eventType:ev.type, note:ev.label, category:"timeline"})));
     grid.appendChild(btn);
   });
 }
@@ -730,53 +758,100 @@ function renderHistory() {
   el.innerHTML = h.map(item => `<div class="history-item"><strong>${escapeHtml(item.event_time_local || "")}</strong> ${escapeHtml(item.note || item.event_type || "")}<br><span class="small">${escapeHtml(item.event_category || "")} · ${escapeHtml(item.organisation || "")} / ${escapeHtml(item.user || "")} · ${escapeHtml(item.sync_status || "sent")}</span></div>`).join("");
 }
 
-function renderAll() { renderTimeline(); renderCounts(); renderHistory(); updateSceneTimer(); updatePheaButton(); }
+function renderAll() { $("callsignButton").textContent = callsignLabel(getUserName()) || "Select callsign"; renderTimeline(); renderCounts(); renderHistory(); updateSceneTimer(); updatePheaButton(); }
 
-async function chooseMobileCallsign(label) {
-  if (!approvedOrganisation(getOrganisation())) { closeModal(); $("setupDetails").open=true; setStatus("Select an approved organisation before starting a job.", "warn"); return; }
-  if (getPendingClear()) { closeModal(); setStatus("Clear awaiting server confirmation. Please synchronise before starting another job.", "warn"); return; }
-  const selected = label === "Personal"
-    ? (localStorage.getItem("timestamp_personal_callsign") || "").trim()
-    : canonicalTeam(label);
-  if (!selected) {
-    setStatus("Enter a personal callsign in User setup first.", "warn");
-    $("setupDetails").open = true;
-    closeModal();
-    return;
-  }
+function teamChangeBlocked() {
+  return getSessionId() || Object.keys(getCompletions()).length || getPendingClear() ||
+    getPendingQueue().length || state.syncInFlight || state.voiceEpisode ||
+    $("manualNote").value.trim();
+}
+
+async function chooseCallsign(label) {
   closeModal();
-  // Avoid changing team halfway through a job, or silently leaving an active
-  // patient episode on the previously selected crew.
-  if (Object.keys(getCompletions()).length && getSessionId()) {
-    setStatus("An episode is active. Clear it before choosing another job.", "warn");
+  if (state.teamAction) return;
+  if (!approvedOrganisation(getOrganisation())) {
+    $("setupDetails").open = true;
+    setStatus("Select an approved organisation before choosing a callsign.", "warn");
     return;
   }
+  const selected = canonicalTeam(label === "Personal" ? localStorage.getItem("timestamp_personal_callsign") : label);
+  if (!selected) {
+    $("setupDetails").open = true;
+    setStatus("Enter and save a personal callsign in User setup first.", "warn");
+    return;
+  }
+
   const previous = getUserName();
-  if (selected !== previous) {
-    localStorage.setItem("timestamp_user", selected);
-    localStorage.removeItem("timestamp_completions");
-    localStorage.removeItem("timestamp_scene_start");
-    localStorage.removeItem("timestamp_scene_stop");
-    localStorage.removeItem("timestamp_session_id");
-    $("userName").value = selected;
-    renderAll();
-  }
-  await pullActiveEpisode(false);
-  if (getCompletions().MOBILE) {
-    setStatus(`Mobile already recorded at ${getCompletions().MOBILE.time || "an earlier time"} for ${selected}.`, "warn");
+  const switching = previous !== selected;
+  if (switching && teamChangeBlocked()) {
+    setStatus("Finish the current job, resolve pending uploads and close any note before changing callsign.", "warn");
     return;
   }
-  await postTimestamp(buildPayload({eventType:"MOBILE", note:"Mobile", category:"timeline"}));
+
+  state.teamAction = true;
+  try {
+    if (switching && previous) {
+      setStatus("Checking the current team before switching…");
+      const previousStatus = await pullActiveEpisode();
+      if (!previousStatus || previousStatus === "active" || teamChangeBlocked()) {
+        setStatus("Changing callsign requires a confirmed idle team and a clear upload queue.", "warn");
+        return;
+      }
+    }
+    if (switching) {
+      state.localRevision++;
+      clearLocalEpisode();
+      state.lastPullAt = 0;
+      localStorage.setItem("timestamp_user", selected);
+      $("userName").value = callsignLabel(selected);
+      renderAll();
+    }
+    setStatus(`Loading shared episode for ${callsignLabel(selected)}…`);
+    if (!await pullActiveEpisode(true) && !state.lastPullAt) {
+      setStatus(`${callsignLabel(selected)} selected. Waiting for shared state. Check your connection.`, "warn");
+    }
+  } finally {
+    state.teamAction = false;
+  }
+}
+
+async function startMobile() {
+  if (state.teamAction) return;
+  if (!approvedOrganisation(getOrganisation())) {
+    $("setupDetails").open = true;
+    setStatus("Select an approved organisation before starting a job.", "warn");
+    return;
+  }
+  if (!getUserName()) { setStatus("Select a callsign before pressing Mobile.", "warn"); return; }
+  if (getPendingClear()) { setStatus("Wait for Clear confirmation before starting another job.", "warn"); return; }
+  const payload = buildPayload({eventType:"MOBILE", note:"Mobile", category:"timeline"});
+  if (blockDuplicateMilestone(payload)) return;
+
+  state.teamAction = true;
+  let sharedStatus;
+  try {
+    setStatus("Checking for an active shared episode…");
+    sharedStatus = await pullActiveEpisode();
+  } finally {
+    state.teamAction = false;
+  }
+  if (!sharedStatus) { setStatus("Connect and check shared state before starting a job.", "warn"); return; }
+  if (blockDuplicateMilestone(payload)) return;
+  if (sharedStatus === "active" || getSessionId() || Object.keys(getCompletions()).length) {
+    setStatus("This team already has a job. Check the shared timeline.", "warn");
+    return;
+  }
+  if (getPendingQueue().length || state.syncInFlight) {
+    setStatus("Synchronise pending timestamps before starting another job.", "warn");
+    return;
+  }
+  await postTimestamp(payload);
 }
 
 function openModal(type) {
   if (type === "callsign") {
-    if (getCompletions().MOBILE) {
-      setStatus(`Mobile already recorded at ${getCompletions().MOBILE.time || "an earlier time"}.`, "warn");
-      return;
-    }
     state.modalType = type;
-    $("modalTitle").textContent = "Mobile · select callsign";
+    $("modalTitle").textContent = "Select callsign";
     $("otherPanel").classList.remove("active");
     const list = $("modalList");
     list.innerHTML = "";
@@ -785,10 +860,13 @@ function openModal(type) {
     options.forEach(label => {
       const btn = document.createElement("button");
       btn.textContent = label === "Personal" ? `Personal: ${localStorage.getItem("timestamp_personal_callsign") || "set in setup"}` : label;
-      btn.addEventListener("click", () => chooseMobileCallsign(label));
+      btn.addEventListener("click", () => chooseCallsign(label));
       list.appendChild(btn);
     });
     $("modalBackdrop").style.display = "flex";
+    $("mainContent").inert = true;
+    $("voiceBar").inert = true;
+    list.firstElementChild?.focus();
     return;
   }
   state.modalType = type;
@@ -817,7 +895,16 @@ function openModal(type) {
   list.appendChild(other);
   $("modalBackdrop").style.display = "flex";
 }
-function closeModal() { $("modalBackdrop").style.display = "none"; state.modalType = null; $("otherPanel").classList.remove("active"); }
+function closeModal() {
+  $("modalBackdrop").style.display = "none";
+  if (state.modalType === "callsign") {
+    $("mainContent").inert = false;
+    $("voiceBar").inert = false;
+    $("callsignButton").focus();
+  }
+  state.modalType = null;
+  $("otherPanel").classList.remove("active");
+}
 function slugifyEventType(prefix, text) { const cleaned = String(text || "").trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 60); return `${prefix}_OTHER_${cleaned || "UNSPECIFIED"}`; }
 function sendOtherItem() {
   const text = $("otherText").value.trim();
@@ -834,7 +921,7 @@ function dictateOtherItem() {
   r.lang = "en-GB"; r.interimResults = false; r.maxAlternatives = 1;
   r.onstart = () => setStatus("Listening for other item...");
   r.onerror = e => setStatus("Other item dictation error: " + e.error, "bad");
-  r.onresult = e => { const text = e.results?.[0]?.[0]?.transcript || ""; if (text.trim()) { $("otherText").value = text.trim(); setStatus("Dictation captured. Tap Send other.", "ok"); } else setStatus("No speech detected.", "warn"); };
+  r.onresult = e => { if (!state.voiceEpisode || state.voiceEpisode !== getSessionId()) return; const text = e.results?.[0]?.[0]?.transcript || ""; if (text.trim()) { $("otherText").value = text.trim(); setStatus("Dictation captured. Tap Send other.", "ok"); } else setStatus("No speech detected.", "warn"); };
   try { r.start(); } catch(err) { setStatus("Could not start dictation: " + err.message, "bad"); }
 }
 
@@ -844,19 +931,34 @@ function setupSpeechRecognition() {
   const r = new SR();
   r.lang = "en-GB"; r.interimResults = false; r.maxAlternatives = 1; r.continuous = false;
   r.onstart = () => { $("voiceButton").classList.add("listening"); $("voiceButton").textContent = "🔴 LISTENING..."; setStatus("Listening..."); };
-  r.onerror = e => { $("voiceButton").classList.remove("listening"); $("voiceButton").textContent = "🎙️ VOICE NOTE"; setStatus("Voice error: " + e.error, "bad"); };
-  r.onend = () => { $("voiceButton").classList.remove("listening"); $("voiceButton").textContent = "🎙️ VOICE NOTE"; };
+  r.onerror = e => { state.voiceEpisode = ""; $("voiceButton").classList.remove("listening"); $("voiceButton").textContent = "🎙️ VOICE NOTE"; setStatus("Voice error: " + e.error, "bad"); };
+  r.onend = () => { state.voiceEpisode = ""; $("voiceButton").classList.remove("listening"); $("voiceButton").textContent = "🎙️ VOICE NOTE"; };
   r.onresult = e => { const text = e.results?.[0]?.[0]?.transcript || ""; if (text.trim()) postTimestamp(buildPayload({eventType:"VOICE_NOTE", note:text.trim(), category:"voice"}), false); else setStatus("No speech detected.", "warn"); };
   state.recognition = r;
 }
-function startVoice() { if (!state.recognition) { setStatus("Voice unavailable. Use Manual note.", "warn"); return; } try { state.recognition.start(); } catch(err) { setStatus("Could not start voice: " + err.message, "bad"); } }
+function startVoice() {
+  if (!state.recognition) { setStatus("Voice unavailable. Use Manual note.", "warn"); return; }
+  if (state.teamAction || !getSessionId() || getPendingClear()) {
+    setStatus("Wait for an active shared episode before recording a note.", "warn");
+    return;
+  }
+  if (state.voiceEpisode) return;
+  state.voiceEpisode = getSessionId();
+  try { state.recognition.start(); } catch(err) {
+    state.voiceEpisode = "";
+    setStatus("Could not start voice: " + err.message, "bad");
+  }
+}
 function showManual(show) { $("manualCard").style.display = show ? "block" : "none"; if (show) $("manualNote").focus(); }
 
 async function clearEpisode() {
+  if (state.teamAction) { setStatus("Wait for the shared episode check.", "warn"); return; }
   if (getPendingClear()) { await syncPending(); await pullActiveEpisode(false); return; }
   if (!getUserName()) { setStatus("No team selected.", "warn"); return; }
   if (!getSessionId()) {
+    const revision = state.localRevision;
     await syncPending(); await pullActiveEpisode(false);
+    if (state.teamAction || state.localRevision !== revision) return;
     if (!getSessionId()) { setStatus("No confirmed shared episode to clear. Check sync and try again.", "warn"); return; }
   }
   const ok = confirm("End patient episode?\n\nThis will stop both timers immediately. The job is closed on the server when synchronisation confirms Clear.");
@@ -888,6 +990,7 @@ async function registerServiceWorker() {
 }
 
 function bindEvents() {
+  $("callsignButton").addEventListener("click", () => openModal("callsign"));
   $("saveSettingsButton").addEventListener("click", saveSettings);
   $("pullStateButton").addEventListener("click", () => pullActiveEpisode(true));
   $("voiceButton").addEventListener("click", startVoice);
@@ -896,6 +999,10 @@ function bindEvents() {
   $("sendManualButton").addEventListener("click", () => {
     const note = $("manualNote").value.trim();
     if (!note) { setStatus("Enter a note first.", "warn"); return; }
+    if (state.teamAction || !getSessionId() || getPendingClear()) {
+      setStatus("Wait for an active shared episode before sending the note.", "warn");
+      return;
+    }
     postTimestamp(buildPayload({eventType:"MANUAL_NOTE", note, category:"manual"}), false);
     $("manualNote").value = "";
     showManual(false);
@@ -904,6 +1011,7 @@ function bindEvents() {
   $("interventionButton").addEventListener("click", () => openModal("intervention"));
   $("drugButton").addEventListener("click", () => openModal("drug"));
   $("modalClose").addEventListener("click", closeModal);
+  document.addEventListener("keydown", event => { if (event.key === "Escape" && state.modalType) closeModal(); });
   $("modalBackdrop").addEventListener("click", e => { if (e.target === $("modalBackdrop")) closeModal(); });
   $("otherSendButton").addEventListener("click", sendOtherItem);
   $("otherDictateButton").addEventListener("click", dictateOtherItem);
@@ -931,7 +1039,7 @@ function init() {
   setInterval(refreshOrganisationDirectory, 300000);
   setInterval(() => { if (!document.hidden) pullActiveEpisode(false); }, 15000);
   if (!approvedOrganisation(getOrganisation())) setStatus("Choose an approved organisation in User setup before logging.", "warn");
-  else if (!getUserName()) setStatus("Press Mobile to choose your callsign before the first job.", "warn");
+  else if (!getUserName()) setStatus("Select a callsign before the first job.", "warn");
 }
 init();
 </script>
