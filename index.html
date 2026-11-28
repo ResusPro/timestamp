@@ -88,7 +88,7 @@ textarea{min-height:78px;resize:vertical}
 <body>
 <main id="mainContent">
 <header>
-  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.4.0-rc3 · <a id="outputLink" class="header-link" target="_blank" rel="noopener noreferrer" aria-disabled="true">Output unavailable</a></div></div>
+  <div><h1>Timestamp Logger</h1><div class="sub">Mission timeline · v1.4.0-rc3.1 · <a id="outputLink" class="header-link" target="_blank" rel="noopener noreferrer" aria-disabled="true">Output unavailable</a></div></div>
   <div class="clock"><strong id="clockTime">--:--:--</strong><span id="clockDate">--</span></div>
 </header>
 <button id="callsignButton" type="button" aria-haspopup="dialog">Select callsign</button>
@@ -164,7 +164,7 @@ textarea{min-height:78px;resize:vertical}
 </div>
 
 <script>
-const APP_VERSION = "1.4.0-rc3";
+const APP_VERSION = "1.4.0-rc3.1";
 const DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwod6aYAyTsRAFcJwEfVoi-PZvFMhYgT_jHF1JWHo19wOS1BVpnPwZ1EbAjS59i1DnF/exec";
 const DEFAULT_ORGANISATION = "";
 const DEFAULT_USER = "";
@@ -528,7 +528,7 @@ function updatePheaButton() {
   if (entry) btn.setAttribute("aria-disabled","true"); else btn.removeAttribute("aria-disabled");
   $("pheaDetail").textContent = redose ? "Rocuronium at "+(roc.time||formatTime(new Date(roc.event_time)))
     : "Recorded "+(entry.time||formatTime(new Date(entry.event_time)))+" · locked";
-  $("pheaCountdown").textContent = formatPheaCountdown(display.remaining);
+  $("pheaCountdown").textContent = formatPheaCountdown(!redose && display.elapsed < PHEA_ACTIVATION_SECONDS ? display.remaining : display.elapsed);
   $("pheaPhase").textContent = display.phase;
   const key = getOrganisation()+"|"+getUserName()+"|"+anchor.event_time+"|"+redose;
   const prev = state.pheaPrevious;
@@ -1134,7 +1134,16 @@ function init() {
   document.addEventListener("visibilitychange", () => { if (!document.hidden) pullActiveEpisode(false); });
   setInterval(syncPending, 30000);
   setInterval(refreshOrganisationDirectory, 300000);
-  setInterval(() => { if (!document.hidden) pullActiveEpisode(false); }, 15000);
+  let foregroundPullRunning = false;
+  setInterval(async () => {
+    if (document.hidden || foregroundPullRunning) return;
+    foregroundPullRunning = true;
+    try {
+      await pullActiveEpisode(false);
+    } finally {
+      foregroundPullRunning = false;
+    }
+  }, 5000);
   if (!approvedOrganisation(getOrganisation())) setStatus("Choose an approved organisation in User setup before logging.", "warn");
   else if (!getUserName()) setStatus("Select a callsign before the first job.", "warn");
 }
